@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="fb933073-10b8-4fdc-8377-f6097d926545" name="CSLab">
+        <fileTransfer rootFolder="/h/162/adilasif" accessType="SFTP" host="cluster12.cs.toronto.edu" port="22" sshConfigId="1ec80d58-3dc8-49ce-a8ed-1debe903b884" sshConfig="adilasif@cluster12.cs.toronto.edu:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
