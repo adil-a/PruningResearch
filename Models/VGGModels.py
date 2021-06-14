@@ -2,12 +2,15 @@
 
 import math
 import torch.nn as nn
+import torch
+
+torch.manual_seed(0)
 
 defaultcfg = {
-    11: [64, 'M', 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512],
-    13: [64, 64, 'M', 128, 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512],
-    16: [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512],
-    19: [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 256, 'M', 512, 512, 512, 512, 'M', 512, 512, 512, 512],
+    11: [64, 'M', 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
+    13: [64, 64, 'M', 128, 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
+    16: [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512, 'M'],
+    19: [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 256, 'M', 512, 512, 512, 512, 'M', 512, 512, 512, 512, 'M'],
 }
 
 
@@ -27,7 +30,16 @@ class VGG(nn.Module):
             num_classes = 200
         else:
             raise NotImplementedError("Unsupported dataset " + dataset)
-        self.classifier = nn.Linear(cfg[-1], num_classes)
+        # self.classifier = nn.Linear(cfg[-1], num_classes)
+        self.classifier = nn.Sequential(
+            nn.Linear(512, 4096),
+            nn.ReLU(inplace=True),
+            nn.Dropout(),
+            nn.Linear(4096, 4096),
+            nn.ReLU(inplace=True),
+            nn.Dropout(),
+            nn.Linear(4096, num_classes)
+        )
         if init_weights:
             self.apply(weights_init)
 
@@ -38,7 +50,7 @@ class VGG(nn.Module):
             if v == 'M':
                 layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
             else:
-                conv2d = nn.Conv2d(in_channels, v, kernel_size=3, padding=1, bias=False)
+                conv2d = nn.Conv2d(in_channels, v, kernel_size=3, padding=1)
                 if batch_norm:
                     layers += [conv2d, nn.BatchNorm2d(v, affine=self._AFFINE), nn.ReLU(inplace=True)]
                 else:
@@ -48,11 +60,14 @@ class VGG(nn.Module):
 
     def forward(self, x):
         x = self.feature(x)
-        if self.dataset == 'tiny_imagenet':
-            x = nn.AvgPool2d(4)(x)
-        else:
-            x = nn.AvgPool2d(2)(x)
+        # if self.dataset == 'tiny_imagenet':
+        #     x = nn.AvgPool2d(4)(x)
+        # else:
+        #     x = nn.AvgPool2d(2)(x)
+        # print(x.dim())
+        # print(f'before {(x.size(0), x.size(1), x.size(2), x.size(3))}')
         x = x.view(x.size(0), -1)
+        # print(f'after {(x.size(0), x.size(1), x.size(2), x.size(3))}')
         y = self.classifier(x)
         return y
 
