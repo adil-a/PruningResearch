@@ -29,7 +29,7 @@ defaultcfg = {
 
 def train(network, train_data, val_data, optimizer, scheduler, criterion, device, writer, path, path_final_epoch):
     curr_best_accuracy = 0
-    current_state_dict = None
+    # current_state_dict = None
     best_accuracy_epoch = 0
     step = 0
     network.train()
@@ -51,7 +51,8 @@ def train(network, train_data, val_data, optimizer, scheduler, criterion, device
         network.train()
         if curr_accuracy > curr_best_accuracy:
             curr_best_accuracy = curr_accuracy
-            current_state_dict = network.state_dict()
+            # current_state_dict = network.state_dict()
+            torch.save(network.state_dict(), path)
             best_accuracy_epoch = epoch
         print(f'Current accuracy: {curr_accuracy}')
         print(f'Loss: {current_loss.item()}')
@@ -62,7 +63,7 @@ def train(network, train_data, val_data, optimizer, scheduler, criterion, device
         writer.flush()
         print('--------------------------------------------------')
     print(f'Best accuracy was {curr_best_accuracy} at epoch {best_accuracy_epoch}')
-    torch.save(current_state_dict, path)
+    # torch.save(current_state_dict, path)
     torch.save(network.state_dict(), path_final_epoch)
     writer.close()
 
