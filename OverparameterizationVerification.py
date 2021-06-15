@@ -27,7 +27,7 @@ defaultcfg = {
 }
 
 
-def train(network, train_data, val_data, optimizer, scheduler, criterion, device, writer, path):
+def train(network, train_data, val_data, optimizer, scheduler, criterion, device, writer, path, path_final_epoch):
     curr_best_accuracy = 0
     current_state_dict = None
     best_accuracy_epoch = 0
@@ -62,7 +62,8 @@ def train(network, train_data, val_data, optimizer, scheduler, criterion, device
         writer.flush()
         print('--------------------------------------------------')
     print(f'Best accuracy was {curr_best_accuracy} at epoch {best_accuracy_epoch}')
-    torch.save(current_state_dict, path)
+    torch.save(current_state_dict, path)tensbo
+    torch.save(network.state_dict(), path_final_epoch)
     writer.close()
 
 
@@ -89,8 +90,9 @@ def main():
         if isinstance(current_cfg[i], int):
             current_cfg[i] = int(current_ratio * current_cfg[i])
     print(f'Current VGG11 config being used: {current_cfg} (ratio {current_ratio}x)')
-    saved_file_name = f'vgg11_{current_ratio}x.pt'  # TODO change this later
-    PATH = os.getcwd() + f'/Models/SavedModels/{saved_file_name}'
+    saved_file_name = f'vgg11_{current_ratio}x'  # TODO change this later
+    PATH = os.getcwd() + f'/Models/SavedModels/{saved_file_name}_best.pt'
+    PATH_FINAL_EPOCH = os.getcwd() + f'/Models/SavedModels/{saved_file_name}_final_epoch.pt'
     torch.manual_seed(0)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     writer = SummaryWriter(f'runs/CIFAR100/VGG/{saved_file_name}')
@@ -126,9 +128,9 @@ def main():
     criterion = torch.nn.CrossEntropyLoss().to(device)
 
     if FIND_BASELINE:
-        train(net, trainloader, trainloader, optimizer, scheduler, criterion, device, writer, PATH)
+        train(net, trainloader, trainloader, optimizer, scheduler, criterion, device, writer, PATH, PATH_FINAL_EPOCH)
     else:
-        train(net, trainloader, testloader, optimizer, scheduler, criterion, device, writer, PATH)
+        train(net, trainloader, testloader, optimizer, scheduler, criterion, device, writer, PATH, PATH_FINAL_EPOCH)
 
 
 if __name__ == '__main__':
