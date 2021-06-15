@@ -62,7 +62,7 @@ def train(network, train_data, val_data, optimizer, scheduler, criterion, device
         writer.flush()
         print('--------------------------------------------------')
     print(f'Best accuracy was {curr_best_accuracy} at epoch {best_accuracy_epoch}')
-    torch.save(current_state_dict, path)tensbo
+    torch.save(current_state_dict, path)
     torch.save(network.state_dict(), path_final_epoch)
     writer.close()
 
