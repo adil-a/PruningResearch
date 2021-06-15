@@ -1,5 +1,7 @@
 # this is still a very sandbox version of what the final file should look like
 # hyperparameters based on https://github.com/weiaicunzai/pytorch-cifar100
+import os
+import argparse
 
 from Utils.Network_Retrieval import get_network
 
@@ -7,7 +9,6 @@ from torch.utils.data import DataLoader
 import torchvision
 import torchvision.transforms as transforms
 import torch.optim as optim
-import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
 import torch
 
@@ -17,8 +18,13 @@ FIND_BASELINE = False  # used in validation to find a baseline that fully fits o
 LR = 0.1
 MOMENTUM = 0.9
 WEIGHT_DECAY = 5e-4
-INITIAL_RATIO = 1.0
-VERBOSE = True
+RATIOS = [1.5, 2, 2.5, 3]
+defaultcfg = {
+    11: [64, 'M', 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
+    13: [64, 64, 'M', 128, 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
+    16: [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512, 'M'],
+    19: [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 256, 'M', 512, 512, 512, 512, 'M', 512, 512, 512, 512, 'M'],
+}
 
 
 def train(network, train_data, val_data, optimizer, scheduler, criterion, device, writer, path):
@@ -66,24 +72,28 @@ def val(network, val_data, device):
     with torch.no_grad():
         for batch_idx, (data, targets) in enumerate(val_data):
             data, targets = data.to(device), targets.to(device)
-            # out = F.softmax(network(data), dim=1)
             out = network(data)
             _, preds = out.max(1)
-            # total += targets.size()[0]
-            # out = out.argmax(dim=1)
-            # for idx in range(targets.size()[0]):
-            #     if out[idx].item() == targets[idx].item():
-            #         correct += 1
             correct += preds.eq(targets).sum()
     return correct / total
 
 
 def main():
-    PATH = "C:/Users/Adil/PycharmProjects/PruningResearch/Models/SavedModels/vgg16_baseline.pt"  # TODO change this
-    # later
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-ratio', type=float, default=1)
+    args = parser.parse_args()
+
+    current_ratio = args.ratio
+    current_cfg = defaultcfg[11]
+    for i in range(len(current_cfg)):
+        if isinstance(current_cfg[i], int):
+            current_cfg[i] = int(current_ratio * current_cfg[i])
+    print(f'Current VGG11 config being used: {current_cfg} (ratio {current_ratio}x)')
+    saved_file_name = f'vgg11_{current_ratio}x.pt'  # TODO change this later
+    PATH = os.getcwd() + f'/Models/SavedModels/{saved_file_name}'
     torch.manual_seed(0)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    writer = SummaryWriter('runs/CIFAR100/VGG/vgg16_run1_baseline')  # TODO change later
+    writer = SummaryWriter(f'runs/CIFAR100/VGG/{saved_file_name}')
 
     train_transform = transforms.Compose(
         [transforms.ToTensor(),
@@ -104,11 +114,11 @@ def main():
                                             download=True, transform=test_transform)
 
     trainloader = DataLoader(trainset, batch_size=BATCH_SIZE,
-                             shuffle=True, num_workers=4)
+                             shuffle=True, num_workers=2)
     testloader = DataLoader(testset, batch_size=BATCH_SIZE,
-                            shuffle=False, num_workers=4)
+                            shuffle=False, num_workers=2)
 
-    net = get_network('vgg16', 'cifar100')
+    net = get_network('vgg11', 'cifar100', current_cfg)
     net.to(device)  # need to parallelize later
 
     optimizer = optim.SGD(net.parameters(), lr=LR, momentum=MOMENTUM, weight_decay=WEIGHT_DECAY, nesterov=True)

@@ -2,9 +2,7 @@
 
 import math
 import torch.nn as nn
-import torch
 
-torch.manual_seed(0)
 
 defaultcfg = {
     11: [64, 'M', 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
@@ -32,7 +30,7 @@ class VGG(nn.Module):
             raise NotImplementedError("Unsupported dataset " + dataset)
         # self.classifier = nn.Linear(cfg[-1], num_classes)
         self.classifier = nn.Sequential(
-            nn.Linear(512, 4096),
+            nn.Linear(cfg[-2], 4096),
             nn.ReLU(inplace=True),
             nn.Dropout(),
             nn.Linear(4096, 4096),
@@ -60,14 +58,11 @@ class VGG(nn.Module):
 
     def forward(self, x):
         x = self.feature(x)
-        # if self.dataset == 'tiny_imagenet':
-        #     x = nn.AvgPool2d(4)(x)
-        # else:
-        #     x = nn.AvgPool2d(2)(x)
         # print(x.dim())
         # print(f'before {(x.size(0), x.size(1), x.size(2), x.size(3))}')
         x = x.view(x.size(0), -1)
-        # print(f'after {(x.size(0), x.size(1), x.size(2), x.size(3))}')
+        # print(x.dim())
+        # print(f'after {(x.size(0), x.size(1))}')
         y = self.classifier(x)
         return y
 
