@@ -1,4 +1,3 @@
-# this is still a very sandbox version of what the final file should look like
 # hyperparameters based on https://github.com/weiaicunzai/pytorch-cifar100
 import os
 import argparse
@@ -18,7 +17,6 @@ FIND_BASELINE = False  # used in validation to find a baseline that fully fits o
 LR = 0.1
 MOMENTUM = 0.9
 WEIGHT_DECAY = 5e-4
-RATIOS = [1.5, 2, 2.5, 3]
 defaultcfg = {
     11: [64, 'M', 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
     13: [64, 64, 'M', 128, 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
@@ -29,7 +27,6 @@ defaultcfg = {
 
 def train(network, train_data, val_data, optimizer, scheduler, criterion, device, writer, path, path_final_epoch):
     curr_best_accuracy = 0
-    # current_state_dict = None
     best_accuracy_epoch = 0
     step = 0
     network.train()
@@ -51,7 +48,6 @@ def train(network, train_data, val_data, optimizer, scheduler, criterion, device
         network.train()
         if curr_accuracy > curr_best_accuracy:
             curr_best_accuracy = curr_accuracy
-            # current_state_dict = network.state_dict()
             torch.save(network.state_dict(), path)
             best_accuracy_epoch = epoch
         print(f'Current accuracy: {curr_accuracy}')
@@ -63,7 +59,6 @@ def train(network, train_data, val_data, optimizer, scheduler, criterion, device
         writer.flush()
         print('--------------------------------------------------')
     print(f'Best accuracy was {curr_best_accuracy} at epoch {best_accuracy_epoch}')
-    # torch.save(current_state_dict, path)
     torch.save(network.state_dict(), path_final_epoch)
     writer.close()
 
