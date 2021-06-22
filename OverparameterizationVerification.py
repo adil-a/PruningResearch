@@ -44,17 +44,20 @@ def train(network, train_data, val_data, optimizer, scheduler, criterion, device
             optimizer.step()
         scheduler.step()
         network.eval()
-        curr_accuracy = val(network, val_data, device)
+        curr_test_accuracy, curr_test_loss = val(network, val_data, device, criterion)
+        curr_accuracy, _ = val(network, train_data, device, criterion)
         network.train()
-        if curr_accuracy > curr_best_accuracy:
-            curr_best_accuracy = curr_accuracy
+        if curr_test_accuracy > curr_best_accuracy:
+            curr_best_accuracy = curr_test_accuracy
             torch.save(network.state_dict(), path)
             best_accuracy_epoch = epoch
-        print(f'Current accuracy: {curr_accuracy}')
+        print(f'Current accuracy: {curr_test_accuracy}')
         print(f'Loss: {current_loss.item()}')
         print(f'LR: {curr_lr}')
-        writer.add_scalar('Training Loss', current_loss.item(), global_step=step)
-        writer.add_scalar('Test accuracy', curr_accuracy, global_step=step)
+        writer.add_scalar('Training Loss', current_loss.item() / len(train_data), global_step=step)
+        writer.add_scalar('Training Accuracy', curr_accuracy, global_step=step)
+        writer.add_scalar('Test Loss', curr_test_loss, global_step=step)
+        writer.add_scalar('Test Accuracy', curr_test_accuracy, global_step=step)
         step += 1
         writer.flush()
         print('--------------------------------------------------')
@@ -63,33 +66,47 @@ def train(network, train_data, val_data, optimizer, scheduler, criterion, device
     writer.close()
 
 
-def val(network, val_data, device):
+def val(network, val_data, device, criterion):
     correct = 0
     total = len(val_data.dataset)
+    test_loss = 0
     with torch.no_grad():
         for batch_idx, (data, targets) in enumerate(val_data):
             data, targets = data.to(device), targets.to(device)
             out = network(data)
+            loss = criterion(out, targets)
             _, preds = out.max(1)
             correct += preds.eq(targets).sum()
-    return correct / total
+            test_loss += loss
+    return correct / total, test_loss / len(val_data)
 
 
 def main():
+    def get_lr_and_bs(ratio: float):
+        new_lr = LR / ratio
+        new_bs = int(BATCH_SIZE / ratio)
+        if (new_bs + 1) % 2 == 0:
+            new_bs += 1
+        if new_lr > 0.1:
+            return 0.1, new_bs
+        else:
+            return new_lr, new_bs
+
     parser = argparse.ArgumentParser()
     parser.add_argument('-ratio', type=float, default=1)
     args = parser.parse_args()
 
     current_ratio = args.ratio
+    current_lr, current_bs = get_lr_and_bs(current_ratio)
     current_cfg = defaultcfg[11]
     for i in range(len(current_cfg)):
         if isinstance(current_cfg[i], int):
             current_cfg[i] = int(current_ratio * current_cfg[i])
-    print(f'Current VGG11 config being used: {current_cfg} (ratio {current_ratio}x)')
+    print(f'Current VGG11 config being used: {current_cfg} (ratio {current_ratio}x) (Batchsize: {current_bs})')
     saved_file_name = f'vgg11_{current_ratio}x'  # TODO change this later
     PATH = os.getcwd() + f'/Models/SavedModels/{saved_file_name}_best.pt'
     PATH_FINAL_EPOCH = os.getcwd() + f'/Models/SavedModels/{saved_file_name}_final_epoch.pt'
-    torch.manual_seed(0)
+    torch.manual_seed(1)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     writer = SummaryWriter(f'runs/CIFAR100/VGG/{saved_file_name}')
 
@@ -111,16 +128,16 @@ def main():
     testset = torchvision.datasets.CIFAR100(root='./data', train=False,
                                             download=True, transform=test_transform)
 
-    trainloader = DataLoader(trainset, batch_size=BATCH_SIZE,
+    trainloader = DataLoader(trainset, batch_size=current_bs,
                              shuffle=True, num_workers=2)
-    testloader = DataLoader(testset, batch_size=BATCH_SIZE,
+    testloader = DataLoader(testset, batch_size=current_bs,
                             shuffle=False, num_workers=2)
 
     net = get_network('vgg11', 'cifar100', current_cfg)
     net.to(device)  # need to parallelize later
 
-    optimizer = optim.SGD(net.parameters(), lr=LR, momentum=MOMENTUM, weight_decay=WEIGHT_DECAY, nesterov=True)
-    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[60, 120, 160], gamma=0.2)
+    optimizer = optim.SGD(net.parameters(), lr=current_lr, momentum=MOMENTUM, weight_decay=WEIGHT_DECAY, nesterov=True)
+    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[75, 150], gamma=0.1)
     criterion = torch.nn.CrossEntropyLoss().to(device)
 
     if FIND_BASELINE:

@@ -37,7 +37,7 @@ def main():
     testloader = DataLoader(testset, batch_size=BATCH_SIZE,
                             shuffle=False, num_workers=2)
 
-    torch.manual_seed(0)
+    torch.manual_seed(1)
     RATIOS = [1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0]
     accuracies = []
     for ratio in RATIOS:
