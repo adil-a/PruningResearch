@@ -2,7 +2,7 @@
 import os
 import argparse
 
-from Utils.Network_Retrieval import get_network
+from Utils.network_utils import get_network
 
 from torch.utils.data import DataLoader
 import torchvision
@@ -74,24 +74,26 @@ def val(network, val_data, device, criterion):
         for batch_idx, (data, targets) in enumerate(val_data):
             data, targets = data.to(device), targets.to(device)
             out = network(data)
-            loss = criterion(out, targets)
+            if criterion is not None:
+                loss = criterion(out, targets)
+                test_loss += loss
             _, preds = out.max(1)
             correct += preds.eq(targets).sum()
-            test_loss += loss
     return correct / total, test_loss / len(val_data)
 
 
-def main():
-    def get_lr_and_bs(ratio: float):
-        new_lr = LR / ratio
-        new_bs = int(BATCH_SIZE / ratio)
-        if (new_bs + 1) % 2 == 0:
-            new_bs += 1
-        if new_lr > 0.1:
-            return 0.1, new_bs
-        else:
-            return new_lr, new_bs
+def get_lr_and_bs(ratio: float):
+    new_lr = LR / ratio
+    new_bs = int(BATCH_SIZE / ratio)
+    if (new_bs + 1) % 2 == 0:
+        new_bs += 1
+    if new_lr > 0.1:
+        return 0.1, new_bs
+    else:
+        return new_lr, new_bs
 
+
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-ratio', type=float, default=1)
     args = parser.parse_args()

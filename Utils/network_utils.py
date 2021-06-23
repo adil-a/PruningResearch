@@ -15,3 +15,9 @@ def get_network(name: str, dataset: str, config: List[Union[int, str]]):
             return VGGModels.VGG(depth=depth, dataset=ds, cfg=config)
     else:
         print(ERROR_MESSAGE)
+
+
+def multiplier(cfg: List[Union[int, str]], ratio: float):
+    for i in range(len(cfg)):
+        if isinstance(cfg[i], int):
+            cfg[i] = int(ratio * cfg[i])
