@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader
 import torchvision
 import torchvision.transforms as transforms
 import torch.optim as optim
+from torch.utils.tensorboard import SummaryWriter
 
 from OverparameterizationVerification import val, get_lr_and_bs, MOMENTUM, WEIGHT_DECAY
 from Utils import pruning_utils
@@ -31,8 +32,12 @@ def load_network(net_type, dataset, config, expansion_rate):
     return net
 
 
-def train(network, train_data, test_data, epochs, optimizer, criterion, device):
+def train(network, train_data, test_data, epochs, optimizer, criterion, scheduler,
+          device, path, file_name, pruning_iteration, writer):
     network.train()
+    step = 0
+    curr_best_accuracy = 0
+    curr_best_epoch = 0
     for epoch in range(1, epochs + 1):
         current_loss = 0
         print(f'Epoch {epoch} of {epochs}')
@@ -44,20 +49,36 @@ def train(network, train_data, test_data, epochs, optimizer, criterion, device):
             current_loss += loss
             loss.backward()
             optimizer.step()
+        if scheduler is not None:
+            scheduler.step()
         network.eval()
-        curr_test_accuracy, _ = val(network, test_data, device, None)
+        curr_test_accuracy, curr_test_loss = val(network, test_data, device, criterion)
+        curr_training_accuracy, _ = val(network, train_data, device, criterion)
+        if curr_test_accuracy > curr_best_accuracy:
+            curr_best_accuracy = curr_test_accuracy
+            curr_best_epoch = epoch
+            model_save_path = path + file_name + f'_{pruning_iteration + 1}_best.pt'
+            torch.save(network.state_dict(), model_save_path)
         network.train()
         print(f'Current accuracy: {curr_test_accuracy}')
         print(f'Loss: {current_loss.item() / len(train_data)}')
         print(f'LR: {optimizer.param_groups[0]["lr"]}')
+        writer.add_scalar('Training Loss', current_loss.item() / len(train_data), global_step=step)
+        writer.add_scalar('Training Accuracy', curr_training_accuracy, global_step=step)
+        writer.add_scalar('Test Loss', curr_test_loss, global_step=step)
+        writer.add_scalar('Test Accuracy', curr_test_accuracy, global_step=step)
+        step += 1
+        writer.flush()
         print('--------------------------------------------------')
+    print(f'Best accuracy was {curr_best_accuracy} at epoch {curr_best_epoch}')
 
 
 def pruning_finetuning(model, train_loader, test_loader, device, pruning_iterations, finetune_epochs,
-                       current_ratio, target_size, optimizer, criterion, path, file_name):
+                       current_ratio, target_size, optimizer, criterion, scheduler, path, file_name, message):
     initial_number_of_parameters = pruning_utils.measure_number_of_parameters(model)
     for i in range(pruning_iterations):
-        print(f'Pruning / Finetuning iteration {i + 1} of {pruning_iterations}')
+        summary = SummaryWriter(f'runs/CIFAR100/VGG/{message}/{file_name}_{i + 1}')
+        print(f'Pruning / {message} iteration {i + 1} of {pruning_iterations}')
         print('Pruning')
         if i == 0:
             print(f'Number of parameters before pruning {pruning_utils.measure_number_of_parameters(model)}')
@@ -78,24 +99,26 @@ def pruning_finetuning(model, train_loader, test_loader, device, pruning_iterati
               f'{initial_number_of_parameters} (Sparsity {global_sparsity[2]})')
         model.eval()
         test_accuracy, _ = val(model, test_loader, device, None)
-        print(f'Test accuracy before finetuning: {test_accuracy}')
+        print(f'Test accuracy before training: {test_accuracy}')
 
-        print('Finetuning')
+        print(f'{message}')
         model.train()
-        train(model, train_loader, test_loader, finetune_epochs, optimizer, criterion, device)
+        train(model, train_loader, test_loader, finetune_epochs, optimizer, criterion, scheduler,
+              device, path, file_name, i, summary)
 
         model.eval()
         test_accuracy, _ = val(model, test_loader, device, None)
-        print(f'Test accuracy after finetuning: {test_accuracy}')
+        print(f'Test accuracy after training: {test_accuracy}')
         model.train()
 
         print('///////////////////////////////////////////////////////////////////////////////////')
-        model_save_path = path + file_name + f'_{i + 1}.pt'
+        model_save_path = path + file_name + f'_{i + 1}_final.pt'
         torch.save(model.state_dict(), model_save_path)
     return model
 
 
 def main():
+    # TODO implement reinitialization
     torch.manual_seed(1)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     parser = argparse.ArgumentParser()
@@ -107,15 +130,37 @@ def main():
 
     expansion_ratio = args.expansion_ratio
     learning_rate, batch_size = get_lr_and_bs(expansion_ratio)
+    if args.lr_rewind:
+        learning_rate = learning_rate * 1
+    elif args.reinitialize:
+        pass
+    else:
+        learning_rate = learning_rate * 0.01
     current_cfg = defaultcfg[11].copy()
     multiplier(current_cfg, expansion_ratio)
     print(f'Current VGG11 config being used: {current_cfg} (ratio {expansion_ratio}x) (Batchsize: {batch_size})')
 
-    saved_file_name = f'vgg11_{expansion_ratio}x_finetune'
-    if not os.path.isdir(
-            os.getcwd() + '/Models/SavedModels/Finetune'):  # TODO change this if using for other techniques
-        os.mkdir(os.getcwd() + '/Models/SavedModels/Finetune')
-    path = os.getcwd() + '/Models/SavedModels/Finetune/'
+    if args.lr_rewind:
+        message = 'Finetuning(LR Rewinding)'
+        saved_file_name = f'vgg11_{expansion_ratio}x_lr_rewind'
+        if not os.path.isdir(
+                os.getcwd() + '/Models/SavedModels/LR_Rewind'):
+            os.mkdir(os.getcwd() + '/Models/SavedModels/LR_Rewind')
+        path = os.getcwd() + '/Models/SavedModels/Finetune/'
+    elif args.reinitialize:
+        message = 'Reinitializing'
+        saved_file_name = f'vgg11_{expansion_ratio}x_reinitialize'
+        if not os.path.isdir(
+                os.getcwd() + '/Models/SavedModels/Reinitialize'):
+            os.mkdir(os.getcwd() + '/Models/SavedModels/Reinitialize')
+        path = os.getcwd() + '/Models/SavedModels/Reinitialize/'
+    else:
+        message = 'Finetuning'
+        saved_file_name = f'vgg11_{expansion_ratio}x_finetune'
+        if not os.path.isdir(
+                os.getcwd() + '/Models/SavedModels/Finetune'):
+            os.mkdir(os.getcwd() + '/Models/SavedModels/Finetune')
+        path = os.getcwd() + '/Models/SavedModels/Finetune/'
 
     train_transform = transforms.Compose(
         [transforms.ToTensor(),
@@ -149,8 +194,13 @@ def main():
     pruning_iters = pruning_utils.get_finetune_iterations(TARGET_SIZE,
                                                           pruning_utils.measure_number_of_parameters(net), 0.2)
 
-    pruning_finetuning(net, trainloader, testloader, device, pruning_iters, args.finetune_epochs, 0.2, TARGET_SIZE,
-                       optimizer, criterion, path, saved_file_name)
+    if args.lr_rewind:
+        scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[75, 150], gamma=0.1)
+        pruning_finetuning(net, trainloader, testloader, device, pruning_iters, 200, 0.2, TARGET_SIZE,
+                           optimizer, criterion, scheduler, path, saved_file_name, message)
+    else:
+        pruning_finetuning(net, trainloader, testloader, device, pruning_iters, args.finetune_epochs, 0.2, TARGET_SIZE,
+                           optimizer, criterion, None, path, saved_file_name, message)
 
 
 if __name__ == '__main__':

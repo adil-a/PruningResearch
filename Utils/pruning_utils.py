@@ -12,7 +12,10 @@ def measure_module_sparsity(module):
         if "weight_mask" in buffer_name or "bias_mask" in buffer_name:
             num_zeros += torch.sum(buffer == 0).item()
             num_elements += buffer.nelement()
-    sparsity = num_zeros / num_elements
+    if num_elements != 0:
+        sparsity = num_zeros / num_elements
+    else:
+        sparsity = 0
     return num_zeros, num_elements, sparsity
 
 
@@ -24,7 +27,10 @@ def measure_global_sparsity(model):
             module_num_zeros, module_num_elements, _ = measure_module_sparsity(module)
             total_num_zeros += module_num_zeros
             total_num_elements += module_num_elements
-    sparsity = total_num_zeros / total_num_elements
+    if total_num_elements != 0:
+        sparsity = total_num_zeros / total_num_elements
+    else:
+        sparsity = 0
     return total_num_zeros, total_num_elements, sparsity
 
 
@@ -58,7 +64,7 @@ def remove_parameters(model):
 
 
 def get_pruning_ratio(target_size, model, current_ratio=0.2):
-    num_parameters = measure_number_of_parameters(model)
+    num_parameters = measure_number_of_parameters(model) - measure_global_sparsity(model)[0]
     if num_parameters * (1 - current_ratio) >= target_size:
         return current_ratio
     else:
