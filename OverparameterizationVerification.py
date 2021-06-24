@@ -1,7 +1,6 @@
-# hyperparameters based on https://github.com/weiaicunzai/pytorch-cifar100
-import os
 import argparse
 
+from config import PRIVATE_PATH, BATCH_SIZE, EPOCHS, LR, MOMENTUM, WEIGHT_DECAY
 from Utils.network_utils import get_network
 
 from torch.utils.data import DataLoader
@@ -11,12 +10,8 @@ import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 import torch
 
-BATCH_SIZE = 128
-EPOCHS = 200
+
 FIND_BASELINE = False  # used in validation to find a baseline that fully fits our training data
-LR = 0.1
-MOMENTUM = 0.9
-WEIGHT_DECAY = 5e-4
 defaultcfg = {
     11: [64, 'M', 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
     13: [64, 64, 'M', 128, 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
@@ -82,15 +77,21 @@ def val(network, val_data, device, criterion):
     return correct / total, test_loss / len(val_data)
 
 
-def get_lr_and_bs(ratio: float):
+# def get_lr(ratio: float):
+#     new_lr = LR / ratio
+#     new_bs = int(BATCH_SIZE / ratio)
+#     if (new_bs + 1) % 2 == 0:
+#         new_bs += 1
+#     if new_lr > 0.1:
+#         return 0.1, new_bs
+#     else:
+#         return new_lr, new_bs
+def get_lr(ratio: float):
     new_lr = LR / ratio
-    new_bs = int(BATCH_SIZE / ratio)
-    if (new_bs + 1) % 2 == 0:
-        new_bs += 1
     if new_lr > 0.1:
-        return 0.1, new_bs
+        return 0.1
     else:
-        return new_lr, new_bs
+        return new_lr
 
 
 def main():
@@ -99,15 +100,15 @@ def main():
     args = parser.parse_args()
 
     current_ratio = args.ratio
-    current_lr, current_bs = get_lr_and_bs(current_ratio)
+    current_lr = get_lr(current_ratio)
     current_cfg = defaultcfg[11]
     for i in range(len(current_cfg)):
         if isinstance(current_cfg[i], int):
             current_cfg[i] = int(current_ratio * current_cfg[i])
-    print(f'Current VGG11 config being used: {current_cfg} (ratio {current_ratio}x) (Batchsize: {current_bs})')
+    print(f'Current VGG11 config being used: {current_cfg} (ratio {current_ratio}x) (Batchsize: {BATCH_SIZE})')
     saved_file_name = f'vgg11_{current_ratio}x'  # TODO change this later
-    PATH = os.getcwd() + f'/Models/SavedModels/{saved_file_name}_best.pt'
-    PATH_FINAL_EPOCH = os.getcwd() + f'/Models/SavedModels/{saved_file_name}_final_epoch.pt'
+    PATH = PRIVATE_PATH + f'/Models/SavedModels/{saved_file_name}_best.pt'
+    PATH_FINAL_EPOCH = PRIVATE_PATH + f'/Models/SavedModels/{saved_file_name}_final_epoch.pt'
     torch.manual_seed(1)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     writer = SummaryWriter(f'runs/CIFAR100/VGG/{saved_file_name}')
@@ -130,9 +131,9 @@ def main():
     testset = torchvision.datasets.CIFAR100(root='./data', train=False,
                                             download=True, transform=test_transform)
 
-    trainloader = DataLoader(trainset, batch_size=current_bs,
+    trainloader = DataLoader(trainset, batch_size=BATCH_SIZE,
                              shuffle=True, num_workers=2)
-    testloader = DataLoader(testset, batch_size=current_bs,
+    testloader = DataLoader(testset, batch_size=BATCH_SIZE,
                             shuffle=False, num_workers=2)
 
     net = get_network('vgg11', 'cifar100', current_cfg)

@@ -6,8 +6,9 @@ from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
 import torchvision
 
+from config import PRIVATE_PATH, BATCH_SIZE
 from Utils.network_utils import get_network
-from OverparameterizationVerification import val, get_lr_and_bs
+from OverparameterizationVerification import val
 from Utils.network_utils import multiplier
 
 defaultcfg = {
@@ -32,13 +33,12 @@ def main():
     RATIOS = [0.25, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0]
     accuracies = []
     for ratio in RATIOS:
-        _, bs = get_lr_and_bs(ratio)
-        testloader = DataLoader(testset, batch_size=bs,
+        testloader = DataLoader(testset, batch_size=BATCH_SIZE,
                                 shuffle=False, num_workers=2)
         current_cfg = defaultcfg[11].copy()
         multiplier(current_cfg, ratio)
         file_to_open = f'vgg11_{ratio}x_best.pt'
-        PATH = os.getcwd() + f'/Models/SavedModels/expansion_ratio_inference/{file_to_open}'
+        PATH = PRIVATE_PATH + f'/Models/SavedModels/expansion_ratio_inference/{file_to_open}'
         net = get_network('vgg11', 'cifar100', current_cfg)
         net.load_state_dict(torch.load(PATH))
         net.to(device)
@@ -55,7 +55,7 @@ def main():
             plt.annotate(accuracy, (RATIOS[i], accuracies[i]), textcoords="offset points", xytext=(-13, -20))
         else:
             plt.annotate(accuracy, (RATIOS[i], accuracies[i]), textcoords="offset points", xytext=(-13, 20))
-    plt.savefig(os.getcwd() + '/vgg11_channel_expansion.png')
+    plt.savefig(PRIVATE_PATH + '/vgg11_channel_expansion.png')
 
 
 if __name__ == '__main__':

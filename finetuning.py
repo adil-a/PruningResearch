@@ -10,7 +10,8 @@ import torchvision.transforms as transforms
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
-from OverparameterizationVerification import val, get_lr_and_bs, MOMENTUM, WEIGHT_DECAY
+from config import PRIVATE_PATH, MOMENTUM, WEIGHT_DECAY, BATCH_SIZE
+from OverparameterizationVerification import val, get_lr
 from Utils import pruning_utils
 from Utils.network_utils import multiplier, get_network
 from Models.VGGModels import weights_init
@@ -27,7 +28,7 @@ TARGET_SIZE = 28518244  # gotten from number of trainable parameters in VGG11 w/
 
 def load_network(net_type, dataset, config, expansion_rate):
     net = get_network(net_type, dataset, config)
-    best_model_path = os.getcwd() + f'/Models/SavedModels/expansion_ratio_inference/vgg11_{expansion_rate}x_best.pt'
+    best_model_path = PRIVATE_PATH + f'/Models/SavedModels/expansion_ratio_inference/vgg11_{expansion_rate}x_best.pt'
     net.load_state_dict(torch.load(best_model_path))
     return net
 
@@ -129,7 +130,7 @@ def main():
     args = parser.parse_args()
 
     expansion_ratio = args.expansion_ratio
-    learning_rate, batch_size = get_lr_and_bs(expansion_ratio)
+    learning_rate = get_lr(expansion_ratio)
     if args.lr_rewind:
         learning_rate = learning_rate * 1
     elif args.reinitialize:
@@ -138,29 +139,29 @@ def main():
         learning_rate = learning_rate * 0.01
     current_cfg = defaultcfg[11].copy()
     multiplier(current_cfg, expansion_ratio)
-    print(f'Current VGG11 config being used: {current_cfg} (ratio {expansion_ratio}x) (Batchsize: {batch_size})')
+    print(f'Current VGG11 config being used: {current_cfg} (ratio {expansion_ratio}x) (Batchsize: {BATCH_SIZE})')
 
     if args.lr_rewind:
         message = 'Finetuning(LR Rewinding)'
         saved_file_name = f'vgg11_{expansion_ratio}x_lr_rewind'
         if not os.path.isdir(
-                os.getcwd() + '/Models/SavedModels/LR_Rewind'):
-            os.mkdir(os.getcwd() + '/Models/SavedModels/LR_Rewind')
-        path = os.getcwd() + '/Models/SavedModels/Finetune/'
+                PRIVATE_PATH + '/Models/SavedModels/LR_Rewind'):
+            os.mkdir(PRIVATE_PATH + '/Models/SavedModels/LR_Rewind')
+        path = PRIVATE_PATH + '/Models/SavedModels/Finetune/'
     elif args.reinitialize:
         message = 'Reinitializing'
         saved_file_name = f'vgg11_{expansion_ratio}x_reinitialize'
         if not os.path.isdir(
-                os.getcwd() + '/Models/SavedModels/Reinitialize'):
-            os.mkdir(os.getcwd() + '/Models/SavedModels/Reinitialize')
-        path = os.getcwd() + '/Models/SavedModels/Reinitialize/'
+                PRIVATE_PATH + '/Models/SavedModels/Reinitialize'):
+            os.mkdir(PRIVATE_PATH + '/Models/SavedModels/Reinitialize')
+        path = PRIVATE_PATH + '/Models/SavedModels/Reinitialize/'
     else:
         message = 'Finetuning'
         saved_file_name = f'vgg11_{expansion_ratio}x_finetune'
         if not os.path.isdir(
-                os.getcwd() + '/Models/SavedModels/Finetune'):
-            os.mkdir(os.getcwd() + '/Models/SavedModels/Finetune')
-        path = os.getcwd() + '/Models/SavedModels/Finetune/'
+                PRIVATE_PATH + '/Models/SavedModels/Finetune'):
+            os.mkdir(PRIVATE_PATH + '/Models/SavedModels/Finetune')
+        path = PRIVATE_PATH + '/Models/SavedModels/Finetune/'
 
     train_transform = transforms.Compose(
         [transforms.ToTensor(),
@@ -180,9 +181,9 @@ def main():
     testset = torchvision.datasets.CIFAR100(root='./data', train=False,
                                             download=True, transform=test_transform)
 
-    trainloader = DataLoader(trainset, batch_size=batch_size,
+    trainloader = DataLoader(trainset, batch_size=BATCH_SIZE,
                              shuffle=True, num_workers=2)
-    testloader = DataLoader(testset, batch_size=batch_size,
+    testloader = DataLoader(testset, batch_size=BATCH_SIZE,
                             shuffle=False, num_workers=2)
 
     net = load_network('vgg11', 'cifar100', current_cfg, expansion_ratio)
