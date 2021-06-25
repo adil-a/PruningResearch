@@ -58,11 +58,7 @@ class VGG(nn.Module):
 
     def forward(self, x):
         x = self.feature(x)
-        # print(x.dim())
-        # print(f'before {(x.size(0), x.size(1), x.size(2), x.size(3))}')
         x = x.view(x.size(0), -1)
-        # print(x.dim())
-        # print(f'after {(x.size(0), x.size(1))}')
         y = self.classifier(x)
         return y
 
@@ -85,11 +81,16 @@ class VGG(nn.Module):
 def weights_init(m):
     if isinstance(m, nn.Conv2d):
         nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+        # nn.init.kaiming_uniform_(m.weight, a=math.sqrt(5))
         if m.bias is not None:
             m.bias.data.zero_()
     elif isinstance(m, nn.Linear):
-        nn.init.normal_(m.weight, 0, 0.01)
-        nn.init.constant_(m.bias, 0)
+        # nn.init.normal_(m.weight, 0, 0.01)
+        # nn.init.constant_(m.bias, 0)
+        stdv = 1. / math.sqrt(m.weight.size(1))
+        m.weight.data.uniform_(-stdv, stdv)
+        if m.bias is not None:
+            m.bias.data.uniform_(-stdv, stdv)
     elif isinstance(m, nn.BatchNorm2d):
         # Note that BN's running_var/mean are
         # already initialized to 1 and 0 respectively.
