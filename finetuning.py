@@ -75,9 +75,15 @@ def train(network, train_data, test_data, epochs, optimizer, criterion, schedule
 
 
 def pruning_finetuning(model, train_loader, test_loader, device, pruning_iterations, finetune_epochs,
-                       current_ratio, target_size, optimizer, criterion, scheduler, path, file_name, message):
+                       current_ratio, target_size, criterion, path, file_name, message, lr, rewind, reinit):
     initial_number_of_parameters = pruning_utils.measure_number_of_parameters(model)
     for i in range(pruning_iterations):
+        optimizer = optim.SGD(model.parameters(), lr=lr, momentum=MOMENTUM,
+                              weight_decay=WEIGHT_DECAY, nesterov=True)
+        if rewind or reinit:
+            scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[75, 150], gamma=0.1)
+        else:
+            scheduler = None
         summary = SummaryWriter(f'runs/CIFAR100/VGG/{message}/{file_name}_{i + 1}')
         print(f'Pruning / {message} iteration {i + 1} of {pruning_iterations}')
         print('Pruning')
@@ -103,10 +109,11 @@ def pruning_finetuning(model, train_loader, test_loader, device, pruning_iterati
         print(f'Test accuracy before training: {test_accuracy}')
 
         print(f'{message}')
+        if reinit:
+            model.apply(weights_init)
         model.train()
         train(model, train_loader, test_loader, finetune_epochs, optimizer, criterion, scheduler,
               device, path, file_name, i, summary)
-
         model.eval()
         test_accuracy, _ = val(model, test_loader, device, None)
         print(f'Test accuracy after training: {test_accuracy}')
@@ -119,7 +126,6 @@ def pruning_finetuning(model, train_loader, test_loader, device, pruning_iterati
 
 
 def main():
-    # TODO implement reinitialization
     torch.manual_seed(1)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     parser = argparse.ArgumentParser()
@@ -131,23 +137,20 @@ def main():
 
     expansion_ratio = args.expansion_ratio
     learning_rate = get_lr(expansion_ratio)
-    if args.lr_rewind:
+    if args.lr_rewind or args.reinitialize:
         learning_rate = learning_rate * 1
-    elif args.reinitialize:
-        pass
     else:
         learning_rate = learning_rate * 0.01
     current_cfg = defaultcfg[11].copy()
     multiplier(current_cfg, expansion_ratio)
     print(f'Current VGG11 config being used: {current_cfg} (ratio {expansion_ratio}x) (Batchsize: {BATCH_SIZE})')
-
     if args.lr_rewind:
         message = 'Finetuning(LR Rewinding)'
         saved_file_name = f'vgg11_{expansion_ratio}x_lr_rewind'
         if not os.path.isdir(
                 PRIVATE_PATH + '/Models/SavedModels/LR_Rewind'):
             os.mkdir(PRIVATE_PATH + '/Models/SavedModels/LR_Rewind')
-        path = PRIVATE_PATH + '/Models/SavedModels/Finetune/'
+        path = PRIVATE_PATH + '/Models/SavedModels/LR_Rewind/'
     elif args.reinitialize:
         message = 'Reinitializing'
         saved_file_name = f'vgg11_{expansion_ratio}x_reinitialize'
@@ -189,19 +192,16 @@ def main():
     net = load_network('vgg11', 'cifar100', current_cfg, expansion_ratio)
     net.to(device)
 
-    optimizer = optim.SGD(net.parameters(), lr=learning_rate, momentum=MOMENTUM,
-                          weight_decay=WEIGHT_DECAY, nesterov=True)
     criterion = torch.nn.CrossEntropyLoss().to(device)
     pruning_iters = pruning_utils.get_finetune_iterations(TARGET_SIZE,
                                                           pruning_utils.measure_number_of_parameters(net), 0.2)
 
-    if args.lr_rewind:
-        scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[75, 150], gamma=0.1)
+    if args.lr_rewind or args.reinitialize:
         pruning_finetuning(net, trainloader, testloader, device, pruning_iters, 200, 0.2, TARGET_SIZE,
-                           optimizer, criterion, scheduler, path, saved_file_name, message)
+                           criterion, path, saved_file_name, message, learning_rate, args.lr_rewind, args.reinitialize)
     else:
         pruning_finetuning(net, trainloader, testloader, device, pruning_iters, args.finetune_epochs, 0.2, TARGET_SIZE,
-                           optimizer, criterion, None, path, saved_file_name, message)
+                           criterion, path, saved_file_name, message, learning_rate, args.lr_rewind, args.reinitialize)
 
 
 if __name__ == '__main__':

@@ -20,12 +20,13 @@ defaultcfg = {
 }
 
 
-def train(network, train_data, val_data, optimizer, scheduler, criterion, device, writer, path, path_final_epoch):
+def train(network, train_data, val_data, optimizer, scheduler, criterion, device, writer, path, path_final_epoch,
+          epochs):
     curr_best_accuracy = 0
     best_accuracy_epoch = 0
     step = 0
     network.train()
-    for epoch in range(1, EPOCHS + 1):
+    for epoch in range(1, epochs + 1):
         current_loss = 0
         curr_lr = optimizer.param_groups[0]["lr"]
         print(f"Epoch {epoch} of {EPOCHS}")
@@ -97,7 +98,11 @@ def get_lr(ratio: float):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-ratio', type=float, default=1)
+    parser.add_argument('-epochs', type=int, default=200, required=False)
     args = parser.parse_args()
+
+    if args.epochs != 200:
+        EPOCHS = args.epochs
 
     current_ratio = args.ratio
     current_lr = get_lr(current_ratio)
@@ -144,9 +149,11 @@ def main():
     criterion = torch.nn.CrossEntropyLoss().to(device)
 
     if FIND_BASELINE:
-        train(net, trainloader, trainloader, optimizer, scheduler, criterion, device, writer, PATH, PATH_FINAL_EPOCH)
+        train(net, trainloader, trainloader, optimizer, scheduler, criterion, device, writer, PATH, PATH_FINAL_EPOCH,
+              EPOCHS)
     else:
-        train(net, trainloader, testloader, optimizer, scheduler, criterion, device, writer, PATH, PATH_FINAL_EPOCH)
+        train(net, trainloader, testloader, optimizer, scheduler, criterion, device, writer, PATH, PATH_FINAL_EPOCH,
+              EPOCHS)
 
 
 if __name__ == '__main__':

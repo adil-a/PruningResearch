@@ -51,11 +51,12 @@ def main():
     plt.ylabel('Test Accuracy', fontsize=14)
     plt.grid(True)
     for i, accuracy in enumerate(accuracies):
-        if i + 1 == len(accuracies) or i + 1 == len(accuracies) - 1 or i + 1 == len(accuracies) - 2:
+        if i + 1 == len(accuracies) or i + 1 == len(accuracies) - 1 or i + 1 == len(accuracies) - 2 or \
+                i + 1 == len(accuracies) - 3:
             plt.annotate(accuracy, (RATIOS[i], accuracies[i]), textcoords="offset points", xytext=(-13, -20))
         else:
             plt.annotate(accuracy, (RATIOS[i], accuracies[i]), textcoords="offset points", xytext=(-13, 20))
-    plt.savefig(PRIVATE_PATH + '/vgg11_channel_expansion.png')
+    plt.savefig(os.getcwd() + '/vgg11_channel_expansion.png')
 
 
 if __name__ == '__main__':
