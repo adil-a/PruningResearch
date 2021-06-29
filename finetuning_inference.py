@@ -63,12 +63,14 @@ def plot_num_of_parameters(ratios, target_size, device):
 def pruning_accuracies(ratios, target_size, test_loader, device):
     folder_names = ['expansion_ratio_inference', 'Finetune', 'LR_Rewind', 'Reinitialize']
     labels = ['Unpruned', 'Finetune', 'LR Rewind', 'Reinitialize']
+    temp_ratios = [1.5, 2.0, 2.5, 3.0, 3.5, 4.0]
     colors = ['red', 'green', 'blue', 'black']
     markers = ['o', 'x', 's', '*']
     for folder_name in folder_names:
         accuracies = []
         path = PRIVATE_PATH + f'/Models/SavedModels/{folder_name}/'
         for ratio in ratios:
+            print(f'{ratio}, {folder_name}')
             curr_cfg = defaultcfg[11].copy()
             network_utils.multiplier(curr_cfg, ratio)
             net = network_utils.get_network('vgg11', 'cifar100', curr_cfg)
@@ -76,27 +78,32 @@ def pruning_accuracies(ratios, target_size, test_loader, device):
                 net.load_state_dict(torch.load(path + f'vgg11_{ratio}x_best.pt'))
                 net.to(device)
                 net.eval()
-                accuracies.append(round(val(net, test_loader, device, None)[0], 2))
+                accuracies.append(round(val(net, test_loader, device, None)[0].item() * 100, 2))
             else:
-                num_of_params = pruning_utils.measure_number_of_parameters(net)
-                final_model_number = pruning_utils.get_finetune_iterations(target_size, num_of_params, 0.2)
-                for module_name, module in net.named_modules():
-                    if isinstance(module, torch.nn.Conv2d) or isinstance(module, torch.nn.Linear):
-                        prune.identity(module, "weight")
-                        prune.identity(module, "bias")
-                net.load_state_dict(torch.load(path +
-                                               f'vgg11_{ratio}x_{folder_name.lower()}_{final_model_number}_best.pt'))
-                pruning_utils.remove_parameters(net)
-                net.to(device)
-                net.eval()
-                accuracies.append(round(val(net, test_loader, device, None)[0], 2))
+                if ratio != 1.0:
+                    num_of_params = pruning_utils.measure_number_of_parameters(net)
+                    final_model_number = pruning_utils.get_finetune_iterations(target_size, num_of_params, 0.2)
+                    for module_name, module in net.named_modules():
+                        if isinstance(module, torch.nn.Conv2d) or isinstance(module, torch.nn.Linear):
+                            prune.identity(module, "weight")
+                            prune.identity(module, "bias")
+                    net.load_state_dict(torch.load(path +
+                                                   f'vgg11_{ratio}x_{folder_name.lower()}_{final_model_number}_best.pt'))
+                    pruning_utils.remove_parameters(net)
+                    net.to(device)
+                    net.eval()
+                    accuracies.append(round(val(net, test_loader, device, None)[0].item() * 100, 2))
         idx = folder_names.index(folder_name)
-        plt.plot(ratios, accuracies, color=colors[idx], marker=markers[idx], label=labels[idx])
+        if folder_name == 'expansion_ratio_inference':
+            plt.plot(ratios, accuracies, color=colors[idx], marker=markers[idx], label=labels[idx])
+        else:
+            plt.plot(temp_ratios, accuracies, color=colors[idx], marker=markers[idx], label=labels[idx])
     plt.title('VGG11 Accuracies w/ Different Magnitude Pruning Techniques', fontsize=14)
     plt.xlabel('Expansion Ratio', fontsize=14)
     plt.ylabel('Test Accuracy', fontsize=14)
     plt.grid(True)
     plt.legend(loc="upper left")
+    plt.savefig(os.getcwd() + '/vgg11_pruning_accuracy.png')
 
 
 def main():
@@ -105,7 +112,7 @@ def main():
     TARGET_SIZE = pruning_utils.measure_number_of_parameters(network_utils.get_network('vgg11', 'cifar100',
                                                                                        defaultcfg[11].copy()))
     RATIOS = [1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0]
-    plot_num_of_parameters(RATIOS, TARGET_SIZE, device)
+    # plot_num_of_parameters(RATIOS, TARGET_SIZE, device)
     test_transform = transforms.Compose(
         [transforms.ToTensor(),
          transforms.Normalize((0.5071, 0.4865, 0.4409), (0.2673, 0.2564, 0.2762))]
