@@ -1,15 +1,12 @@
 import os
 import matplotlib.pyplot as plt
+from collections import OrderedDict
 
 import torch
-from torch.utils.data import DataLoader
-import torchvision.transforms as transforms
-import torchvision
 
 from config import PRIVATE_PATH, BATCH_SIZE
-from Utils.network_utils import get_network
+from Utils.network_utils import get_network, multiplier, get_test_loader
 from OverparameterizationVerification import val
-from Utils.network_utils import multiplier
 
 defaultcfg = {
     11: [64, 'M', 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
@@ -19,28 +16,43 @@ defaultcfg = {
 }
 
 
+def load_for_non_parallel(dictionary):
+    new_state_dict = OrderedDict()
+    for k, v in dictionary.items():
+        temp = k[:7]
+        name = k[7:]
+        # print(name)
+        if temp == 'module.':
+            new_state_dict[name] = v
+        else:
+            new_state_dict[k] = v
+    return new_state_dict
+
+
+def get_file_names(ratios):
+    lst = []
+    all_files = os.listdir(PRIVATE_PATH + '/Models/SavedModels/expansion_ratio_inference/')
+    for ratio in ratios:
+        for file in all_files:
+            if str(ratio) in file and 'best' in file:
+                lst.append(file)
+    return lst
+
+
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    test_transform = transforms.Compose(
-        [transforms.ToTensor(),
-         transforms.Normalize((0.5071, 0.4865, 0.4409), (0.2673, 0.2564, 0.2762))]
-    )
-    testset = torchvision.datasets.CIFAR100(root='./data', train=False,
-                                            download=True, transform=test_transform)
-
     torch.manual_seed(1)
+    testloader = get_test_loader(BATCH_SIZE)
     RATIOS = [0.25, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0]
     accuracies = []
     for ratio in RATIOS:
-        testloader = DataLoader(testset, batch_size=BATCH_SIZE,
-                                shuffle=False, num_workers=2)
         current_cfg = defaultcfg[11].copy()
         multiplier(current_cfg, ratio)
         file_to_open = f'vgg11_{ratio}x_best.pt'
         PATH = PRIVATE_PATH + f'/Models/SavedModels/expansion_ratio_inference/{file_to_open}'
         net = get_network('vgg11', 'cifar100', current_cfg)
-        net.load_state_dict(torch.load(PATH))
+        state_dict = load_for_non_parallel(torch.load(PATH))
+        net.load_state_dict(state_dict)
         net.to(device)
         net.eval()
         accuracies.append(round(val(net, testloader, device, None)[0].item() * 100, 2))

@@ -1,19 +1,15 @@
-# code from https://leimao.github.io/blog/PyTorch-Pruning/
 import os
 import argparse
 
 from torch.nn.utils import prune
 import torch
-from torch.utils.data import DataLoader
-import torchvision
-import torchvision.transforms as transforms
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
 from config import PRIVATE_PATH, MOMENTUM, WEIGHT_DECAY, BATCH_SIZE
-from OverparameterizationVerification import val, get_lr
+from OverparameterizationVerification import val
 from Utils import pruning_utils
-from Utils.network_utils import multiplier, get_network
+from Utils.network_utils import multiplier, get_network, get_test_loader, get_train_valid_loader
 from Models.VGGModels import weights_init
 
 defaultcfg = {
@@ -23,7 +19,7 @@ defaultcfg = {
     19: [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 256, 'M', 512, 512, 512, 512, 'M', 512, 512, 512, 512, 'M'],
 }
 
-TARGET_SIZE = 28518244  # gotten from number of trainable parameters in VGG11 w/ expansion ratio of 1.0x
+TARGET_SIZE = 5703649  # gotten from number of trainable parameters in VGG11 w/ expansion ratio of 1.0x times 0.2
 
 
 def load_network(net_type, dataset, config, expansion_rate):
@@ -75,9 +71,23 @@ def train(network, train_data, test_data, epochs, optimizer, criterion, schedule
 
 
 def pruning_finetuning(model, train_loader, test_loader, device, pruning_iterations, finetune_epochs,
-                       current_ratio, target_size, criterion, path, file_name, message, lr, rewind, reinit):
+                       current_ratio, target_size, criterion, path, file_name, message, lr, rewind, reinit,
+                       expansion_ratio):
     initial_number_of_parameters = pruning_utils.measure_number_of_parameters(model)
+
+    if not rewind and not reinit:
+        lr = lr * 0.01
+
     for i in range(pruning_iterations):
+        if i != 0:
+            if rewind:
+                model.load_state_dict(torch.load(path + f'vgg11_{expansion_ratio}x_lr_rewind_{i}_best.pt'))
+            elif reinit:
+                model.load_state_dict(torch.load(path + f'vgg11_{expansion_ratio}x_reinitialize_{i}_best.pt'))
+            else:
+                model.load_state_dict(torch.load(path + f'vgg11_{expansion_ratio}x_finetune_{i}_best.pt'))
+            model.train()
+
         optimizer = optim.SGD(model.parameters(), lr=lr, momentum=MOMENTUM,
                               weight_decay=WEIGHT_DECAY, nesterov=True)
         if rewind or reinit:
@@ -133,17 +143,17 @@ def main():
     parser.add_argument('-finetune_epochs', type=int, required=True)
     parser.add_argument('-lr_rewind', type=bool, default=False, required=False)
     parser.add_argument('-reinitialize', type=bool, default=False, required=False)
+    parser.add_argument('-lr', type=float, required=True)
     args = parser.parse_args()
+    assert (args.lr_rewind and not args.reinitialize) or (not args.lr_rewind and args.reinitialize) or \
+           (not args.lr_rewind and not args.reinitialize), "can't have lr rewinding and reinitializing both enabled"
 
     expansion_ratio = args.expansion_ratio
-    learning_rate = get_lr(expansion_ratio)
-    if args.lr_rewind or args.reinitialize:
-        learning_rate = learning_rate * 1
-    else:
-        learning_rate = learning_rate * 0.01
+    learning_rate = args.lr
     current_cfg = defaultcfg[11].copy()
     multiplier(current_cfg, expansion_ratio)
-    print(f'Current VGG11 config being used: {current_cfg} (ratio {expansion_ratio}x) (Batchsize: {BATCH_SIZE})')
+    print(f'Current VGG11 config being used: {current_cfg} (ratio {expansion_ratio}x) (Batchsize: {BATCH_SIZE}, '
+          f'LR: {learning_rate})')
     if args.lr_rewind:
         message = 'Finetuning(LR Rewinding)'
         saved_file_name = f'vgg11_{expansion_ratio}x_lr_rewind'
@@ -166,28 +176,8 @@ def main():
             os.mkdir(PRIVATE_PATH + '/Models/SavedModels/Finetune')
         path = PRIVATE_PATH + '/Models/SavedModels/Finetune/'
 
-    train_transform = transforms.Compose(
-        [transforms.ToTensor(),
-         transforms.Normalize((0.5071, 0.4865, 0.4409), (0.2673, 0.2564, 0.2762)),
-         transforms.RandomHorizontalFlip(),
-         transforms.RandomCrop(32, padding=4),
-         transforms.RandomRotation(15)]
-    )
-
-    test_transform = transforms.Compose(
-        [transforms.ToTensor(),
-         transforms.Normalize((0.5071, 0.4865, 0.4409), (0.2673, 0.2564, 0.2762))]
-    )
-
-    trainset = torchvision.datasets.CIFAR100(root='./data', train=True,
-                                             download=True, transform=train_transform)
-    testset = torchvision.datasets.CIFAR100(root='./data', train=False,
-                                            download=True, transform=test_transform)
-
-    trainloader = DataLoader(trainset, batch_size=BATCH_SIZE,
-                             shuffle=True, num_workers=2)
-    testloader = DataLoader(testset, batch_size=BATCH_SIZE,
-                            shuffle=False, num_workers=2)
+    trainloader, _ = get_train_valid_loader(BATCH_SIZE, False)
+    testloader = get_test_loader(BATCH_SIZE)
 
     net = load_network('vgg11', 'cifar100', current_cfg, expansion_ratio)
     net.to(device)
@@ -196,12 +186,28 @@ def main():
     pruning_iters = pruning_utils.get_finetune_iterations(TARGET_SIZE,
                                                           pruning_utils.measure_number_of_parameters(net), 0.2)
 
-    if args.lr_rewind or args.reinitialize:
+    if args.lr_rewind:
         pruning_finetuning(net, trainloader, testloader, device, pruning_iters, 200, 0.2, TARGET_SIZE,
-                           criterion, path, saved_file_name, message, learning_rate, args.lr_rewind, args.reinitialize)
+                           criterion, path, saved_file_name, message, learning_rate, args.lr_rewind, args.reinitialize,
+                           expansion_ratio)
+    elif args.reinitialize:
+        temp = PRIVATE_PATH + '/Models/SavedModels/Finetune/' + f'vgg11_{expansion_ratio}x_finetune' \
+                                                                f'_{pruning_iters - 1}_best.pt'
+        assert os.path.isfile(temp), f"required file {temp} does not exist"
+
+        for module_name, module in net.named_modules():
+            if isinstance(module, torch.nn.Conv2d) or isinstance(module, torch.nn.Linear):
+                prune.identity(module, "weight")
+                prune.identity(module, "bias")
+
+        net.load_state_dict(torch.load(temp))
+        net.train()
+        pruning_finetuning(net, trainloader, testloader, device, 1, 200, 0.2, TARGET_SIZE, criterion, path,
+                           saved_file_name, message, learning_rate, args.lr_rewind, args.reinitialize, expansion_ratio)
     else:
         pruning_finetuning(net, trainloader, testloader, device, pruning_iters, args.finetune_epochs, 0.2, TARGET_SIZE,
-                           criterion, path, saved_file_name, message, learning_rate, args.lr_rewind, args.reinitialize)
+                           criterion, path, saved_file_name, message, learning_rate, args.lr_rewind, args.reinitialize,
+                           expansion_ratio)
 
 
 if __name__ == '__main__':
