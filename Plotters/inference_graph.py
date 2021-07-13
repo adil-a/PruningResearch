@@ -4,7 +4,7 @@ from collections import OrderedDict
 
 import torch
 
-from Utils.config import PRIVATE_PATH, BATCH_SIZE
+from Utils.config import PRIVATE_PATH, BATCH_SIZE, SEED
 from Utils.network_utils import get_network, multiplier, get_test_loader
 from OverparameterizationVerification import val
 
@@ -41,7 +41,7 @@ def get_file_names(ratios):
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    torch.manual_seed(1)
+    torch.manual_seed(SEED)
     testloader = get_test_loader(BATCH_SIZE)
     RATIOS = [0.25, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0]
     accuracies = []
@@ -68,7 +68,7 @@ def main():
             plt.annotate(accuracy, (RATIOS[i], accuracies[i]), textcoords="offset points", xytext=(-13, -20))
         else:
             plt.annotate(accuracy, (RATIOS[i], accuracies[i]), textcoords="offset points", xytext=(-13, 20))
-    plt.savefig(os.getcwd() + '/vgg11_channel_expansion.png')
+    plt.savefig(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..')) + '/vgg11_channel_expansion.png')
 
 
 if __name__ == '__main__':

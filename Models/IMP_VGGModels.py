@@ -12,9 +12,9 @@ defaultcfg = {
 }
 
 
-class VGG(nn.Module):
+class IMP_VGG(nn.Module):
     def __init__(self, dataset='cifar10', depth=19, init_weights=True, cfg=None, affine=True, batchnorm=True):
-        super(VGG, self).__init__()
+        super(IMP_VGG, self).__init__()
         if cfg is None:
             cfg = defaultcfg[depth]
         self._AFFINE = affine

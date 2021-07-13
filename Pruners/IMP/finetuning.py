@@ -6,11 +6,11 @@ import torch
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
-from Utils.config import PRIVATE_PATH, MOMENTUM, WEIGHT_DECAY, BATCH_SIZE
+from Utils.config import PRIVATE_PATH, MOMENTUM, WEIGHT_DECAY, BATCH_SIZE, SEED
 from OverparameterizationVerification import val
 from Utils import pruning_utils
 from Utils.network_utils import multiplier, get_network, get_test_loader, get_train_valid_loader
-from Models.VGGModels import weights_init
+from Models.IMP_VGGModels import weights_init
 
 defaultcfg = {
     11: [64, 'M', 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
@@ -136,7 +136,7 @@ def pruning_finetuning(model, train_loader, test_loader, device, pruning_iterati
 
 
 def main():
-    torch.manual_seed(1)
+    torch.manual_seed(SEED)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     parser = argparse.ArgumentParser()
     parser.add_argument('-expansion_ratio', type=float, required=True)

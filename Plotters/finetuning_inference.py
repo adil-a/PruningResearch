@@ -1,6 +1,6 @@
 from OverparameterizationVerification import val
 from Utils import pruning_utils, network_utils
-from Utils.config import PRIVATE_PATH, BATCH_SIZE
+from Utils.config import PRIVATE_PATH, BATCH_SIZE, SEED
 
 import os
 import matplotlib.pyplot as plt
@@ -52,7 +52,7 @@ def plot_num_of_parameters(ratios, target_size, device):
             plt.annotate(size, (ratios[i], before_pruning[i]), textcoords="offset points", xytext=(-18, -27))
     for i, size in enumerate(after_pruning):
         plt.annotate(size, (ratios[i], after_pruning[i]), textcoords="offset points", xytext=(-13, 10))
-    plt.savefig(os.getcwd() + '/vgg11_num_of_parameters.png')
+    plt.savefig(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..')) + '/vgg11_num_of_parameters.png')
 
 
 def pruning_accuracies(ratios, target_size, test_loader, device):
@@ -99,11 +99,11 @@ def pruning_accuracies(ratios, target_size, test_loader, device):
     plt.ylabel('Test Accuracy', fontsize=14)
     plt.grid(True)
     plt.legend(loc="upper left")
-    plt.savefig(os.getcwd() + '/vgg11_pruning_accuracy.png')
+    plt.savefig(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..')) + '/vgg11_pruning_accuracy.png')
 
 
 def main():
-    torch.manual_seed(1)
+    torch.manual_seed(SEED)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     TARGET_SIZE = 5703649
     RATIOS = [1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0]
@@ -120,4 +120,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    # main()
+    pass

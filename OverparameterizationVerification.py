@@ -1,7 +1,7 @@
 import argparse
 import os
 
-from Utils.config import PRIVATE_PATH, BATCH_SIZE, EPOCHS, LR, MOMENTUM, WEIGHT_DECAY
+from Utils.config import PRIVATE_PATH, BATCH_SIZE, EPOCHS, LR, MOMENTUM, WEIGHT_DECAY, SEED
 from Utils.network_utils import get_network, get_train_valid_loader, get_test_loader, multiplier
 
 import torch.optim as optim
@@ -98,7 +98,7 @@ def main():
     parser.add_argument('-epochs', type=int, default=EPOCHS, required=False)
     parser.add_argument('-lr', type=float, required=True)
     args = parser.parse_args()
-    torch.manual_seed(1)
+    torch.manual_seed(SEED)
 
     current_ratio = args.ratio
     current_lr = args.lr

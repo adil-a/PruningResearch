@@ -1,7 +1,8 @@
-# loader code taken from https://gist.github.com/kevinzakka/d33bf8d6c7f06a9d8c76d97a7879f5cb
+# loader code taken from https://gist.github.com/kevinzakka/d33bf8d6c7f06a9d8c76d97a7879f5cb &
+# https://github.com/ganguli-lab/Synaptic-Flow/blob/378fcee0c1dafcecc7ec177e44989419809a106b/Utils/load.py#L19
 import numpy
 
-from Models import VGGModels
+from Models import IMP_VGGModels, Pruners_VGGModels
 from typing import List, Union
 
 import torch
@@ -13,6 +14,70 @@ from torchvision import transforms
 from torch.utils.data.sampler import SubsetRandomSampler
 
 ERROR_MESSAGE = 'Invalid network name'
+
+
+def dimension(dataset):
+    if dataset == 'mnist':
+        input_shape, num_classes = (1, 28, 28), 10
+    if dataset == 'cifar10':
+        input_shape, num_classes = (3, 32, 32), 10
+    if dataset == 'cifar100':
+        input_shape, num_classes = (3, 32, 32), 100
+    if dataset == 'tiny-imagenet':
+        input_shape, num_classes = (3, 64, 64), 200
+    if dataset == 'imagenet':
+        input_shape, num_classes = (3, 224, 224), 1000
+    return input_shape, num_classes
+
+
+def dataloader(dataset, batch_size, train, length=None, workers=1):
+    # Dataset
+    # if dataset == 'cifar10':
+    #     mean, std = (0.491, 0.482, 0.447), (0.247, 0.243, 0.262)
+    #     transform = get_transform(size=32, padding=4, mean=mean, std=std, preprocess=train)
+    #     dataset = datasets.CIFAR10('Data', train=train, download=True, transform=transform)
+    if dataset == 'cifar100':
+        transform = transforms.Compose(
+            [transforms.ToTensor(),
+             transforms.Normalize((0.5071, 0.4865, 0.4409), (0.2673, 0.2564, 0.2762)),
+             transforms.RandomHorizontalFlip(),
+             transforms.RandomCrop(32, padding=4),
+             transforms.RandomRotation(15)]
+        )
+        dataset = datasets.CIFAR100('./data', train=train, download=True, transform=transform)
+    # if dataset == 'imagenet':
+    #     mean, std = (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)
+    #     if train:
+    #         transform = transforms.Compose([
+    #             transforms.RandomResizedCrop(224, scale=(0.2, 1.)),
+    #             transforms.RandomGrayscale(p=0.2),
+    #             transforms.ColorJitter(0.4, 0.4, 0.4, 0.4),
+    #             transforms.RandomHorizontalFlip(),
+    #             transforms.ToTensor(),
+    #             transforms.Normalize(mean, std)])
+    #     else:
+    #         transform = transforms.Compose([
+    #             transforms.Resize(256),
+    #             transforms.CenterCrop(224),
+    #             transforms.ToTensor(),
+    #             transforms.Normalize(mean, std)])
+    #     folder = 'Data/imagenet_raw/{}'.format('train' if train else 'val')
+    #     dataset = datasets.ImageFolder(folder, transform=transform)
+
+    # Dataloader
+    use_cuda = torch.cuda.is_available()
+    kwargs = {'num_workers': workers, 'pin_memory': True} if use_cuda else {}
+    shuffle = train is True
+    if length is not None:
+        indices = torch.randperm(len(dataset))[:length]
+        dataset = torch.utils.data.Subset(dataset, indices)
+
+    dataloader = torch.utils.data.DataLoader(dataset=dataset,
+                                             batch_size=batch_size,
+                                             shuffle=shuffle,
+                                             **kwargs)
+
+    return dataloader
 
 
 def get_train_valid_loader(batch_size,
@@ -113,7 +178,7 @@ def get_test_loader(batch_size,
     return data_loader
 
 
-def get_network(name: str, dataset: str, config: List[Union[int, str]]):
+def get_network(name: str, dataset: str, config: List[Union[int, str]], imp=True):
     ds = dataset.lower()
     net_name = name.lower()
     if net_name.startswith('vgg'):
@@ -121,7 +186,10 @@ def get_network(name: str, dataset: str, config: List[Union[int, str]]):
         if depth != 11 and depth != 13 and depth != 16 and depth != 19:
             print(ERROR_MESSAGE)
         else:
-            return VGGModels.VGG(depth=depth, dataset=ds, cfg=config)
+            if imp:
+                return IMP_VGGModels.IMP_VGG(depth=depth, dataset=ds, cfg=config)
+            else:
+                return Pruners_VGGModels.VGG(depth=depth, dataset=ds, cfg=config)
     else:
         print(ERROR_MESSAGE)
 
