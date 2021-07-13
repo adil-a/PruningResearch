@@ -4,7 +4,7 @@ from collections import OrderedDict
 
 import torch
 
-from config import PRIVATE_PATH, BATCH_SIZE
+from Utils.config import PRIVATE_PATH, BATCH_SIZE
 from Utils.network_utils import get_network, multiplier, get_test_loader
 from OverparameterizationVerification import val
 

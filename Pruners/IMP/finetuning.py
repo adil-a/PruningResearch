@@ -6,7 +6,7 @@ import torch
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
-from config import PRIVATE_PATH, MOMENTUM, WEIGHT_DECAY, BATCH_SIZE
+from Utils.config import PRIVATE_PATH, MOMENTUM, WEIGHT_DECAY, BATCH_SIZE
 from OverparameterizationVerification import val
 from Utils import pruning_utils
 from Utils.network_utils import multiplier, get_network, get_test_loader, get_train_valid_loader

@@ -1,12 +1,9 @@
 import argparse
 import os
 
-from config import PRIVATE_PATH, BATCH_SIZE, EPOCHS, LR, MOMENTUM, WEIGHT_DECAY
-from Utils.network_utils import get_network, get_train_valid_loader, get_test_loader, multiplier, get_lr_array
+from Utils.config import PRIVATE_PATH, BATCH_SIZE, EPOCHS, LR, MOMENTUM, WEIGHT_DECAY
+from Utils.network_utils import get_network, get_train_valid_loader, get_test_loader, multiplier
 
-from torch.utils.data import DataLoader
-import torchvision
-import torchvision.transforms as transforms
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 import torch
