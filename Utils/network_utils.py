@@ -66,7 +66,7 @@ def dataloader(dataset, batch_size, train, length=None, workers=1):
 
     # Dataloader
     use_cuda = torch.cuda.is_available()
-    kwargs = {'num_workers': workers, 'pin_memory': True} if use_cuda else {}
+    kwargs = {'num_workers': workers, 'pin_memory': False} if use_cuda else {} #TODO change this
     shuffle = train is True
     if length is not None:
         indices = torch.randperm(len(dataset))[:length]

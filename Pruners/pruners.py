@@ -1,7 +1,6 @@
 # Code based on https://github.com/ganguli-lab/Synaptic-Flow/blob/378fcee0c1dafcecc7ec177e44989419809a106b/Pruners/pruners.py
 
 import torch
-import numpy as np
 
 
 class Pruner:
@@ -22,9 +21,12 @@ class Pruner:
 
         # Threshold scores
         global_scores = torch.cat([torch.flatten(v) for v in self.scores.values()])
+        # print(global_scores)
         k = int((1.0 - sparsity) * global_scores.numel())
+        # print(k)
         if not k < 1:
             threshold, _ = torch.kthvalue(global_scores, k)
+            # print(threshold)
             for mask, param in self.masked_parameters:
                 score = self.scores[id(param)]
                 zero = torch.tensor([0.]).to(mask.device)

@@ -5,13 +5,7 @@
 
 import torch.nn as nn
 from Layers import layers
-
-defaultcfg = {
-    11: [64, 'M', 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
-    13: [64, 64, 'M', 128, 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
-    16: [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512, 'M'],
-    19: [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 256, 'M', 512, 512, 512, 512, 'M', 512, 512, 512, 512, 'M'],
-}
+from Utils.config import defaultcfg
 
 
 class VGG(nn.Module):
@@ -39,8 +33,9 @@ class VGG(nn.Module):
             nn.Dropout(),
             layers.Linear(4096, num_classes)
         )
-        if init_weights:
-            self._initialize_weights()
+        # self.classifier = layers.Linear(cfg[-2], num_classes)
+        # if init_weights:
+        #     self._initialize_weights()
 
     def make_layers(self, cfg, batchnorm):
         layer_list = []
@@ -48,6 +43,8 @@ class VGG(nn.Module):
         for v in cfg:
             if v == 'M':
                 layer_list.append(nn.MaxPool2d(kernel_size=2, stride=2))
+            elif v == 'A':
+                layer_list.append(nn.AvgPool2d(2))
             else:
                 conv2d = layers.Conv2d(in_channels, v, kernel_size=3, padding=1)
                 if batchnorm:
@@ -58,7 +55,7 @@ class VGG(nn.Module):
         return nn.Sequential(*layer_list)
 
     def forward(self, x):
-        x = self.feature(x)
+        x = self.features(x)
         x = x.view(x.size(0), -1)
         y = self.classifier(x)
         return y
