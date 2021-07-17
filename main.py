@@ -2,9 +2,17 @@
 
 import argparse
 from Pruners import singleshot
+from Utils import config
+from Plotters import pruning_inference
+import OverparameterizationVerification
+
 
 if __name__ == '__main__':
+    config.setup_seed(config.SEED)
     parser = argparse.ArgumentParser()
+    parser.add_argument('--checkpoint-dir', type=str)
+    parser.add_argument('--graph', type=str, choices=['num_of_params', 'accuracies', 'weights_per_layer'])
+    parser.add_argument('--overparameterization-verification', type=bool)
     # Training Hyperparameters
     training_args = parser.add_argument_group('training')
     training_args.add_argument('--dataset', type=str, default='mnist',
@@ -113,5 +121,9 @@ if __name__ == '__main__':
     #                     help='print statistics during training and testing')
     args = parser.parse_args()
 
-    if args.experiment == 'singleshot':
+    if args.graph is not None:
+        pruning_inference.main(args)
+    elif args.overparameterization_verification:
+        OverparameterizationVerification.main(args)
+    elif args.experiment == 'singleshot':
         singleshot.run(args)

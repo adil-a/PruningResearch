@@ -29,7 +29,8 @@ def run(args):
     optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=config.MOMENTUM,
                                 weight_decay=config.WEIGHT_DECAY,
                                 nesterov=True)
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[75, 150], gamma=0.1)
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[75, 200],
+                                                     gamma=0.1)  # TODO change back to original
 
     print(f'Pruning with {args.pruner} for {args.prune_epochs} epochs')
     pruner = pruning_utils.pruner(args.pruner)(pruning_utils.masked_parameters(model))

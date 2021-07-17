@@ -1,13 +1,30 @@
+import os.path
+
 import torch
+from Utils.network_utils import eval, checkpointing
 
 
 def train(network, train_data, val_data, optimizer, scheduler, criterion, device, writer, path, path_final_epoch,
-          epochs):
+          epochs, checkpoint_dir):
+    epoch = 1
     curr_best_accuracy = 0
     best_accuracy_epoch = 0
     step = 0
+    checkpoint_location = os.path.join(checkpoint_dir, 'checkpoint.pth')
+    if os.path.exists(checkpoint_location):
+        checkpoint = torch.load(checkpoint_location)
+        network.load_state_dict(checkpoint['state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        criterion = checkpoint['loss']
+        epoch = checkpoint['epoch']
+        scheduler.load_state_dict(checkpoint['scheduler'])
+        rng = checkpoint['rng']
+        torch.set_rng_state(rng)
+        curr_best_accuracy = checkpoint['curr_best_accuracy']
+        best_accuracy_epoch = checkpoint['best_accuracy_epoch']
+        step = checkpoint['tb_step']
     network.train()
-    for epoch in range(1, epochs + 1):
+    while epoch < epochs + 1:
         current_loss = 0
         curr_lr = optimizer.param_groups[0]["lr"]
         print(f"Epoch {epoch} of {epochs}")
@@ -38,25 +55,10 @@ def train(network, train_data, val_data, optimizer, scheduler, criterion, device
         step += 1
         writer.flush()
         print('--------------------------------------------------')
+        epoch += 1
+        if epoch % 10 == 0:
+            checkpointing(network, optimizer, scheduler, criterion, epoch, torch.get_rng_state(), curr_best_accuracy,
+                          best_accuracy_epoch, step, checkpoint_dir)
     print(f'Best accuracy was {curr_best_accuracy} at epoch {best_accuracy_epoch}')
     torch.save(network.state_dict(), path_final_epoch)
     writer.close()
-
-
-def eval(network, val_data, device, criterion, validate=False, validate_amount=0.1):
-    correct = 0
-    if validate:
-        total = len(val_data.dataset) * validate_amount
-    else:
-        total = len(val_data.dataset)
-    test_loss = 0
-    with torch.no_grad():
-        for batch_idx, (data, targets) in enumerate(val_data):
-            data, targets = data.to(device), targets.to(device)
-            out = network(data)
-            if criterion is not None:
-                loss = criterion(out, targets)
-                test_loss += loss
-            _, preds = out.max(1)
-            correct += preds.eq(targets).sum()
-    return correct / total, test_loss / len(val_data)

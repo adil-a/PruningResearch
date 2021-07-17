@@ -9,7 +9,7 @@ from torch.utils.tensorboard import SummaryWriter
 from Utils.config import PRIVATE_PATH, MOMENTUM, WEIGHT_DECAY, BATCH_SIZE, SEED
 from OverparameterizationVerification import val
 from Utils import pruning_utils
-from Utils.network_utils import multiplier, get_network, get_test_loader, get_train_valid_loader
+from Utils.network_utils import multiplier, get_network, dataloader, get_train_valid_loader
 from Models.IMP_VGGModels import weights_init
 
 defaultcfg = {
@@ -177,7 +177,7 @@ def main():
         path = PRIVATE_PATH + '/Models/SavedModels/Finetune/'
 
     trainloader, _ = get_train_valid_loader(BATCH_SIZE, False)
-    testloader = get_test_loader(BATCH_SIZE)
+    testloader = dataloader('cifar100', BATCH_SIZE, False)
 
     net = load_network('vgg11', 'cifar100', current_cfg, expansion_ratio)
     net.to(device)

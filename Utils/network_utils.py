@@ -1,5 +1,7 @@
 # loader code taken from https://gist.github.com/kevinzakka/d33bf8d6c7f06a9d8c76d97a7879f5cb &
 # https://github.com/ganguli-lab/Synaptic-Flow/blob/378fcee0c1dafcecc7ec177e44989419809a106b/Utils/load.py#L19
+import os.path
+
 import numpy
 
 from Models import IMP_VGGModels, Pruners_VGGModels
@@ -37,13 +39,19 @@ def dataloader(dataset, batch_size, train, length=None, workers=1):
     #     transform = get_transform(size=32, padding=4, mean=mean, std=std, preprocess=train)
     #     dataset = datasets.CIFAR10('Data', train=train, download=True, transform=transform)
     if dataset == 'cifar100':
-        transform = transforms.Compose(
-            [transforms.ToTensor(),
-             transforms.Normalize((0.5071, 0.4865, 0.4409), (0.2673, 0.2564, 0.2762)),
-             transforms.RandomHorizontalFlip(),
-             transforms.RandomCrop(32, padding=4),
-             transforms.RandomRotation(15)]
-        )
+        if train:
+            transform = transforms.Compose(
+                [transforms.ToTensor(),
+                 transforms.Normalize((0.5071, 0.4865, 0.4409), (0.2673, 0.2564, 0.2762)),
+                 transforms.RandomHorizontalFlip(),
+                 transforms.RandomCrop(32, padding=4),
+                 transforms.RandomRotation(15)]
+            )
+        else:
+            transform = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize((0.5071, 0.4865, 0.4409), (0.2673, 0.2564, 0.2762)),
+            ])
         dataset = datasets.CIFAR100('./data', train=train, download=True, transform=transform)
     # if dataset == 'imagenet':
     #     mean, std = (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)
@@ -66,7 +74,7 @@ def dataloader(dataset, batch_size, train, length=None, workers=1):
 
     # Dataloader
     use_cuda = torch.cuda.is_available()
-    kwargs = {'num_workers': workers, 'pin_memory': False} if use_cuda else {} #TODO change this
+    kwargs = {'num_workers': workers, 'pin_memory': False} if use_cuda else {}  # TODO change this
     shuffle = train is True
     if length is not None:
         indices = torch.randperm(len(dataset))[:length]
@@ -141,43 +149,6 @@ def get_train_valid_loader(batch_size,
     return train_loader, valid_loader
 
 
-def get_test_loader(batch_size,
-                    num_workers=1,
-                    pin_memory=True):
-    """
-    Utility function for loading and returning a multi-process
-    test iterator over the CIFAR-100 dataset.
-    If using CUDA, num_workers should be set to 1 and pin_memory to True.
-    Params
-    ------
-    - data_dir: path directory to the dataset.
-    - batch_size: how many samples per batch to load.
-    - shuffle: whether to shuffle the dataset after every epoch.
-    - num_workers: number of subprocesses to use when loading the dataset.
-    - pin_memory: whether to copy tensors into CUDA pinned memory. Set it to
-      True if using GPU.
-    Returns
-    -------
-    - data_loader: test set iterator.
-    """
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.5071, 0.4865, 0.4409), (0.2673, 0.2564, 0.2762)),
-    ])
-
-    dataset = datasets.CIFAR100(
-        root='./data', train=False,
-        download=True, transform=transform,
-    )
-
-    data_loader = torch.utils.data.DataLoader(
-        dataset, batch_size=batch_size, shuffle=False,
-        num_workers=num_workers, pin_memory=pin_memory,
-    )
-
-    return data_loader
-
-
 def get_network(name: str, dataset: str, config: List[Union[int, str]], imp=True):
     ds = dataset.lower()
     net_name = name.lower()
@@ -211,3 +182,37 @@ def get_lr_array(start, stop):
         lr = np.log10(value)
         lst.append(round(lr, sig_figs - int(math.floor(math.log10(abs(lr)))) - 1))
     return lst
+
+
+def eval(network, val_data, device, criterion, validate=False, validate_amount=0.1):
+    correct = 0
+    if validate:
+        total = len(val_data.dataset) * validate_amount
+    else:
+        total = len(val_data.dataset)
+    test_loss = 0
+    with torch.no_grad():
+        for batch_idx, (data, targets) in enumerate(val_data):
+            data, targets = data.to(device), targets.to(device)
+            out = network(data)
+            if criterion is not None:
+                loss = criterion(out, targets)
+                test_loss += loss
+            _, preds = out.max(1)
+            correct += preds.eq(targets).sum()
+    return correct / total, test_loss / len(val_data)
+
+
+def checkpointing(model, optimizer, scheduler, loss, epoch, rng, curr_best_accuracy, best_accuracy_epoch, tb_step,
+                  path):
+    torch.save({
+        'epoch': epoch,
+        'state_dict': model.state_dict(),
+        'optimizer': optimizer.state_dict(),
+        'scheduler': scheduler.state_dict(),
+        'loss': loss,
+        'rng': rng,
+        'curr_best_accuracy': curr_best_accuracy,
+        'best_accuracy_epoch': best_accuracy_epoch,
+        'tb_step': tb_step
+    }, os.path.join(path, 'checkpoint.pth'))

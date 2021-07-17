@@ -1,4 +1,10 @@
-PRIVATE_PATH = '/ais/gobi3/u/adilasif/PruningResearch'  # TODO remove this before making repo public
+import random
+import torch
+import numpy
+import os
+
+# PRIVATE_PATH = '/ais/gobi3/u/adilasif/PruningResearch'  # TODO remove this before making repo public
+PRIVATE_PATH = os.getcwd()
 BATCH_SIZE = 128
 EPOCHS = 200
 LR = 0.1
@@ -12,3 +18,12 @@ defaultcfg = {
     16: [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512, 'M'],
     19: [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 256, 'M', 512, 512, 512, 512, 'M', 512, 512, 512, 512, 'M'],
 }
+
+
+def setup_seed(seed):
+    random.seed(seed)
+    numpy.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    # torch.backends.cudnn.deterministic = True
