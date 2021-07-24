@@ -205,14 +205,25 @@ def eval(network, val_data, device, criterion, validate=False, validate_amount=0
 
 def checkpointing(model, optimizer, scheduler, loss, epoch, rng, curr_best_accuracy, best_accuracy_epoch, tb_step,
                   path):
+    if scheduler is not None:
+        temp = scheduler.state_dict()
+    else:
+        temp = None
     torch.save({
         'epoch': epoch,
         'state_dict': model.state_dict(),
         'optimizer': optimizer.state_dict(),
-        'scheduler': scheduler.state_dict(),
+        'scheduler': temp,
         'loss': loss,
         'rng': rng,
         'curr_best_accuracy': curr_best_accuracy,
         'best_accuracy_epoch': best_accuracy_epoch,
         'tb_step': tb_step
     }, os.path.join(path, 'checkpoint.pth'))
+
+
+def pruning_checkpointing(epoch, rng, path):
+    torch.save({
+        'epoch': epoch,
+        'rng': rng
+    }, os.path.join(path, 'pruning_checkpoint.pth'))

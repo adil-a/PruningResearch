@@ -29,15 +29,13 @@ def run(args):
     optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=config.MOMENTUM,
                                 weight_decay=config.WEIGHT_DECAY,
                                 nesterov=True)
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[75, 200],
-                                                     gamma=0.1)  # TODO change back to original
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.lr_drops, gamma=0.1)
 
     print(f'Pruning with {args.pruner} for {args.prune_epochs} epochs')
     pruner = pruning_utils.pruner(args.pruner)(pruning_utils.masked_parameters(model))
     _, total_elems = pruner.stats()
-    print(total_elems)
+    print(f'Total params: {total_elems}')
     target_sparsity = (config.TARGET_SIZE / total_elems)
-    # target_sparsity = 10**(-float(args.compression))
     prune_loop(model, loss, pruner, prune_loader, device, target_sparsity, args.compression_schedule, 'global',
                args.prune_epochs)
 
@@ -50,4 +48,4 @@ def run(args):
         os.mkdir(config.PRIVATE_PATH + f'/Models/SavedModels/{file_names[args.pruner.lower()]}/')
     writer = SummaryWriter(f'runs/CIFAR100/VGG/{file_names[args.pruner.lower()]}/{saved_file_name}')
     train(model, train_loader, test_loader, optimizer, scheduler, loss, device, writer, path_to_best_model,
-          path_to_final_model, args.post_epochs)
+          path_to_final_model, args.post_epochs, args.checkpoint_dir)

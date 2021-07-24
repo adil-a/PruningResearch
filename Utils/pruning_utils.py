@@ -26,7 +26,7 @@ def measure_global_sparsity(model):
     total_num_zeros = 0
     total_num_elements = 0
     for module_name, module in model.named_modules():
-        if isinstance(module, torch.nn.Conv2d) or isinstance(module, torch.nn.Linear):
+        if isinstance(module, layers.Conv2d) or isinstance(module, layers.Linear):
             module_num_zeros, module_num_elements, _ = measure_module_sparsity(module)
             total_num_zeros += module_num_zeros
             total_num_elements += module_num_elements
@@ -38,9 +38,13 @@ def measure_global_sparsity(model):
 
 
 def measure_number_of_parameters(model):
-    num_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    return num_parameters
-
+    # num_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    # return num_parameters
+    total = 0
+    for module_name, module in model.named_modules():
+        if isinstance(module, (layers.Conv2d, layers.Linear)):
+            total += sum(p.numel() for p in module.parameters())
+    return total
 
 def remove_parameters(model):
     for module_name, module in model.named_modules():
@@ -137,3 +141,13 @@ def pruner(method):
         'synflow': pruners.SynFlow,
     }
     return prune_methods[method]
+
+
+def stats(model):
+    r"""Returns remaining and total number of prunable parameters.
+    """
+    remaining_params, total_params = 0, 0
+    for mask, _ in model.masked_parameters:
+        remaining_params += mask.detach().cpu().numpy().sum()
+        total_params += mask.numel()
+    return remaining_params, total_params
