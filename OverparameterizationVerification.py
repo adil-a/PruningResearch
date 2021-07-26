@@ -4,6 +4,7 @@ import os
 from Utils.config import PRIVATE_PATH, BATCH_SIZE, EPOCHS, LR, MOMENTUM, WEIGHT_DECAY, SEED
 from Utils.network_utils import get_network, multiplier, dataloader
 from train import train
+from Optimizers.lars import LARS
 
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
@@ -67,8 +68,9 @@ def main(args):
         net = torch.nn.DataParallel(net)
     net.to(device)
 
-    optimizer = optim.SGD(net.parameters(), lr=current_lr, momentum=MOMENTUM, weight_decay=WEIGHT_DECAY,
-                          nesterov=True)
+    # optimizer = optim.SGD(net.parameters(), lr=current_lr, momentum=MOMENTUM, weight_decay=WEIGHT_DECAY,
+    #                       nesterov=True)
+    optimizer = LARS(net.parameters(), lr=args.lr, max_epoch=args.post_epochs)
     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[75, 150], gamma=0.1)
     criterion = torch.nn.CrossEntropyLoss().to(device)
 

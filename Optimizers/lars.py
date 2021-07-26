@@ -82,18 +82,26 @@ class LARS(Optimizer):
                 global_lr = lr * decay
 
                 # Compute local learning rate for this layer
-                local_lr = eta * weight_norm / \
-                    (grad_norm + weight_decay * weight_norm)
+                if grad_norm == 0 and weight_norm == 0:
+                    local_lr = 0
+                else:
+                    local_lr = eta * weight_norm / (grad_norm + weight_decay * weight_norm)
 
                 # Update the momentum term
                 actual_lr = local_lr * global_lr
+                # if weight_norm == 0 or grad_norm == 0:
+                #     print(f'Weight with size {p.size()}: {p}')
+                #     print(f'Grad: {d_p}')
+                #     print(f'Local LR: {local_lr}')
+                #     print(f'Weight norm: {weight_norm}')
+                #     print(f'Grad norm: {grad_norm}')
 
                 if 'momentum_buffer' not in param_state:
                     buf = param_state['momentum_buffer'] = \
                             torch.zeros_like(p.data)
                 else:
                     buf = param_state['momentum_buffer']
-                buf.mul_(momentum).add_(actual_lr, d_p + weight_decay * p.data)
+                buf.mul_(momentum).add_(d_p + weight_decay * p.data, alpha=actual_lr)
                 p.data.add_(-buf)
 
         return loss

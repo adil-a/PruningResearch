@@ -4,6 +4,7 @@ import os.path
 from Utils import config
 from Utils.network_utils import eval, pruning_checkpointing
 from train import train_imp
+from Optimizers.lars import LARS
 
 import numpy as np
 import torch
@@ -81,15 +82,18 @@ def prune_loop_imp(model, loss, pruner, train_loader, test_loader, device, spars
         if args.reinitialize:
             model._initialize_weights()  # TODO make a new reinit weights method
         if not args.reinitialize:
-            lr = args.lr * 0.01
+            # lr = args.lr * 0.01
+            lr = args.lr
         else:
             lr = args.lr
-        optimizer = optim.SGD(model.parameters(), lr=lr, momentum=config.MOMENTUM,
-                              weight_decay=config.WEIGHT_DECAY, nesterov=True)
-        if args.reinitialize:
-            scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.lr_drops, gamma=0.1)
-        else:
-            scheduler = None
+        # optimizer = optim.SGD(model.parameters(), lr=lr, momentum=config.MOMENTUM,
+        #                       weight_decay=config.WEIGHT_DECAY, nesterov=True)
+        optimizer = LARS(model.parameters(), lr=lr, max_epoch=args.post_epochs)
+        # if args.reinitialize:
+        #     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.lr_drops, gamma=0.1)
+        # else:
+        #     scheduler = None
+        scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.lr_drops, gamma=0.1)
         summary = SummaryWriter(f'runs/CIFAR100/VGG/{message}/{file_name}_{epoch}')
         model.eval()
         test_accuracy, _ = eval(model, test_loader, device, None)

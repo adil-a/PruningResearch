@@ -73,18 +73,6 @@ def train_imp(network, train_data, test_data, epochs, optimizer, criterion, sche
     step = 0
     curr_best_accuracy = 0
     curr_best_epoch = 0
-    # checkpoint_location = os.path.join(checkpoint_dir, 'checkpoint.pth')
-    # if os.path.exists(checkpoint_location):
-    #     checkpoint = torch.load(checkpoint_location)
-    #     network.load_state_dict(checkpoint['state_dict'])
-    #     optimizer.load_state_dict(checkpoint['optimizer'])
-    #     criterion = checkpoint['loss']
-    #     epoch = checkpoint['epoch']
-    #     if checkpoint['scheduler'] is not None:
-    #         scheduler.load_state_dict(checkpoint['scheduler'])
-    #     curr_best_accuracy = checkpoint['curr_best_accuracy']
-    #     curr_best_epoch = checkpoint['best_accuracy_epoch']
-    #     step = checkpoint['tb_step']
     while epoch < epochs + 1:
         current_loss = 0
         print(f'Epoch {epoch} of {epochs}')
@@ -96,6 +84,8 @@ def train_imp(network, train_data, test_data, epochs, optimizer, criterion, sche
             current_loss += loss
             loss.backward()
             optimizer.step()
+            # for buffer_name, buffer in network.named_buffers():
+            #     print((buffer.size(), buffer_name, buffer))
         if scheduler is not None:
             scheduler.step()
         network.eval()

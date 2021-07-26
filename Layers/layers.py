@@ -15,18 +15,15 @@ class Linear(nn.Linear):
             self.register_buffer('bias_mask', torch.ones(self.bias.shape))
 
     def forward(self, input):
-        # W = self.weight_mask * self.weight
-        # if self.bias is not None:
-        #     b = self.bias_mask * self.bias
-        # else:
-        #     b = self.bias
-        # return F.linear(input, W, b)
-        self.weight = self.weight_mask * self.weight
+        W = self.weight_mask * self.weight  # sets gradients to 0 in backward pass
         if self.bias is not None:
-            self.bias = self.bias_mask * self.bias
-        # else:
-        #     b = self.bias
-        return F.linear(input, self.weight, self.bias)
+            b = self.bias_mask * self.bias
+        else:
+            b = self.bias
+        self.weight.data.mul_(self.weight_mask)  # sets the actual weights to 0
+        if self.bias is not None:
+            self.bias.data.mul_(self.bias_mask)
+        return F.linear(input, W, b)
 
 
 class Conv2d(nn.Conv2d):
@@ -49,18 +46,15 @@ class Conv2d(nn.Conv2d):
                         self.padding, self.dilation, self.groups)
 
     def forward(self, input):
-        # W = self.weight_mask * self.weight
-        # if self.bias is not None:
-        #     b = self.bias_mask * self.bias
-        # else:
-        #     b = self.bias
-        # return self._conv_forward(input, W, b)
-        self.weight = self.weight_mask * self.weight
+        W = self.weight_mask * self.weight
         if self.bias is not None:
-            self.bias = self.bias_mask * self.bias
-        # else:
-        #     b = self.bias
-        return self._conv_forward(input, self.weight, self.bias)
+            b = self.bias_mask * self.bias
+        else:
+            b = self.bias
+        self.weight.data.mul_(self.weight_mask)
+        if self.bias is not None:
+            self.bias.data.mul_(self.bias_mask)
+        return self._conv_forward(input, W, b)
 
 
 class Identity1d(nn.Module):
