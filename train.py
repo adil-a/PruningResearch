@@ -83,9 +83,7 @@ def train_imp(network, train_data, test_data, epochs, optimizer, criterion, sche
             loss = criterion(scores, targets)
             current_loss += loss
             loss.backward()
-            optimizer.step()
-            # for buffer_name, buffer in network.named_buffers():
-            #     print((buffer.size(), buffer_name, buffer))
+            optimizer.step(epoch=epoch)  # TODO only here for LARS implementation
         if scheduler is not None:
             scheduler.step()
         network.eval()
