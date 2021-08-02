@@ -10,6 +10,7 @@ import numpy as np
 import torch
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
+import wandb
 
 
 def prune_loop(model, loss, pruner, dataloader, device, sparsity, schedule, scope, epochs,
@@ -67,6 +68,17 @@ def prune_loop_imp(model, loss, pruner, train_loader, test_loader, device, spars
             if not args.reinitialize:
                 model.load_state_dict(torch.load(path + f'vgg11_{args.expansion_ratio}x_finetune_{epoch - 1}_best.pt'))
         model.train()
+        configuration = dict(learning_rate=args.lr,
+                             dataset=args.dataset,
+                             model=args.model_name,
+                             train_epochs=args.post_epochs,
+                             prune_method=args.pruner)
+        wandb.init(project='Pruning Research',
+                   config=configuration,
+                   entity='sparsetraining')
+        wandb.watch(model)
+        wandb.run.name = file_name
+        wandb.run.save()
         print(f'Pruning ({message}) iteration {epoch} of {epochs}')
         pruner.score(model, loss, train_loader, device)
         params_before_pruning, _ = pruner.stats()
@@ -80,28 +92,32 @@ def prune_loop_imp(model, loss, pruner, train_loader, test_loader, device, spars
         print(f'Before pruning: {params_before_pruning} After pruning: {remaining_params} w/ a pruning ratio of '
               f'{1 - (remaining_params / params_before_pruning)}')
         if args.reinitialize:
-            model._initialize_weights()  # TODO make a new reinit weights method
-        if not args.reinitialize:
-            # lr = args.lr * 0.01
+            model._initialize_pruned_weights()
+            print('Weights reinitialized')
+        if args.reinitialize or epoch == epochs:
             lr = args.lr
+            optimizer = LARS(model.parameters(), lr=lr, max_epoch=args.post_epochs)
         else:
-            lr = args.lr
-        # optimizer = optim.SGD(model.parameters(), lr=lr, momentum=config.MOMENTUM,
-        #                       weight_decay=config.WEIGHT_DECAY, nesterov=True)
-        optimizer = LARS(model.parameters(), lr=lr, max_epoch=args.post_epochs)
-        # if args.reinitialize:
-        #     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.lr_drops, gamma=0.1)
-        # else:
-        #     scheduler = None
-        scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.lr_drops, gamma=0.1)
-        summary = SummaryWriter(f'runs/CIFAR100/VGG/{message}/{file_name}_{epoch}')
+            lr = args.lr * 0.01
+            optimizer = optim.SGD(model.parameters(), lr=lr, momentum=config.MOMENTUM,
+                                  weight_decay=config.WEIGHT_DECAY, nesterov=True)
+        if args.reinitialize:
+            scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.lr_drops, gamma=0.1)
+        else:
+            scheduler = None
+        # summary = SummaryWriter(f'runs/CIFAR100/VGG/{message}/{file_name}_{epoch}')
+
         model.eval()
         test_accuracy, _ = eval(model, test_loader, device, None)
         print(f'Test accuracy before training: {test_accuracy}')
+        if isinstance(optimizer, LARS):
+            print('Optimizing using LARS')
+        else:
+            print('Optimizing using SGD')
 
         model.train()
         train_imp(model, train_loader, test_loader, args.post_epochs, optimizer, loss, scheduler,
-                  device, path, file_name, epoch, summary, args.checkpoint_dir)
+                  device, path, file_name, epoch, None, args.checkpoint_dir)
         model_save_path = path + file_name + f'_{epoch}_final.pt'
         torch.save(model.state_dict(), model_save_path)
         pruning_checkpointing(epoch, torch.get_rng_state(), args.checkpoint_dir)

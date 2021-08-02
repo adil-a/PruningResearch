@@ -4,6 +4,7 @@ from torch.nn.utils import prune
 import torch
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
+import wandb
 
 from Utils.config import PRIVATE_PATH, MOMENTUM, WEIGHT_DECAY, BATCH_SIZE, SEED, TARGET_SIZE, defaultcfg
 from Utils import pruning_utils
@@ -22,6 +23,7 @@ def load_network(net_type, dataset, config, expansion_rate):
 def main(args):
     torch.manual_seed(SEED)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    wandb.login()
 
     expansion_ratio = args.expansion_ratio
     learning_rate = args.lr
@@ -38,21 +40,21 @@ def main(args):
     #     path = PRIVATE_PATH + '/Models/SavedModels/LR_Rewind/'
     if args.reinitialize:
         message = 'Reinitializing'
-        saved_file_name = f'vgg11_{expansion_ratio}x_reinitialize'
+        saved_file_name = f'vgg11_{expansion_ratio}x_reinitialize_{learning_rate}LR'
         if not os.path.isdir(
                 PRIVATE_PATH + '/Models/SavedModels/Reinitialize'):
             os.mkdir(PRIVATE_PATH + '/Models/SavedModels/Reinitialize')
         path = PRIVATE_PATH + '/Models/SavedModels/Reinitialize/'
     elif args.imp_singleshot:
         message = 'Finetuning (Singleshot IMP)'
-        saved_file_name = f'vgg11_{expansion_ratio}x_finetune_singleshot'
+        saved_file_name = f'vgg11_{expansion_ratio}x_finetune_singleshot_{learning_rate}LR'
         if not os.path.isdir(
                 PRIVATE_PATH + '/Models/SavedModels/Finetune_Singleshot'):
             os.mkdir(PRIVATE_PATH + '/Models/SavedModels/Finetune_Singleshot')
         path = PRIVATE_PATH + '/Models/SavedModels/Finetune_Singleshot/'
     else:
         message = 'Finetuning'
-        saved_file_name = f'vgg11_{expansion_ratio}x_finetune'
+        saved_file_name = f'vgg11_{expansion_ratio}x_finetune_{learning_rate}LR'
         if not os.path.isdir(
                 PRIVATE_PATH + '/Models/SavedModels/Finetune'):
             os.mkdir(PRIVATE_PATH + '/Models/SavedModels/Finetune')

@@ -8,6 +8,8 @@ from torch.utils.tensorboard import SummaryWriter
 from Utils import network_utils, pruning_utils, config
 from Pruners.prune import prune_loop
 from train import train
+from Optimizers.lars import LARS
+import wandb
 
 
 def run(args):
@@ -26,10 +28,26 @@ def run(args):
     network_utils.multiplier(cfg, args.expansion_ratio)
     model = network_utils.get_network(args.model_name, args.dataset, cfg, imp=False).to(device)
     loss = nn.CrossEntropyLoss().to(device)
-    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=config.MOMENTUM,
-                                weight_decay=config.WEIGHT_DECAY,
-                                nesterov=True)
+    # optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=config.MOMENTUM,
+    #                             weight_decay=config.WEIGHT_DECAY,
+    #                             nesterov=True)
+    optimizer = LARS(model.parameters(), lr=args.lr, max_epoch=args.post_epochs)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.lr_drops, gamma=0.1)
+
+    saved_file_name = f'vgg11_{args.expansion_ratio}x_{file_names[args.pruner.lower()]}_{args.lr}LR'
+    configuration = dict(learning_rate=args.lr,
+                         dataset=args.dataset,
+                         model=args.model_name,
+                         train_epochs=args.post_epochs,
+                         prune_method=args.pruner)
+    wandb.init(project='Pruning Research',
+               config=configuration,
+               entity='sparsetraining',
+               group='singleshot',
+               job_type=f'{file_names[args.pruner.lower()]} Maskmixing')
+    wandb.watch(model)
+    wandb.run.name = saved_file_name
+    wandb.run.save()
 
     print(f'Pruning with {args.pruner} for {args.prune_epochs} epochs')
     pruner = pruning_utils.pruner(args.pruner)(pruning_utils.masked_parameters(model))
@@ -39,13 +57,12 @@ def run(args):
     prune_loop(model, loss, pruner, prune_loader, device, target_sparsity, args.compression_schedule, 'global',
                args.prune_epochs)
 
-    saved_file_name = f'vgg11_{args.expansion_ratio}x'
     path_to_best_model = config.PRIVATE_PATH + f'/Models/SavedModels/{file_names[args.pruner.lower()]}/' \
                                                f'{saved_file_name}_best.pt'
     path_to_final_model = config.PRIVATE_PATH + f'/Models/SavedModels/{file_names[args.pruner.lower()]}/' \
                                                 f'{saved_file_name}_final.pt'
     if not os.path.isdir(config.PRIVATE_PATH + f'/Models/SavedModels/{file_names[args.pruner.lower()]}/'):
         os.mkdir(config.PRIVATE_PATH + f'/Models/SavedModels/{file_names[args.pruner.lower()]}/')
-    writer = SummaryWriter(f'runs/CIFAR100/VGG/{file_names[args.pruner.lower()]}/{saved_file_name}')
-    train(model, train_loader, test_loader, optimizer, scheduler, loss, device, writer, path_to_best_model,
+    # writer = SummaryWriter(f'runs/CIFAR100/VGG/{file_names[args.pruner.lower()]}/{saved_file_name}')
+    train(model, train_loader, test_loader, optimizer, scheduler, loss, device, None, path_to_best_model,
           path_to_final_model, args.post_epochs, args.checkpoint_dir)

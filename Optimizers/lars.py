@@ -79,7 +79,8 @@ class LARS(Optimizer):
 
                 # Global LR computed on polynomial decay schedule
                 decay = (1 - float(epoch) / max_epoch) ** 2
-                global_lr = lr * decay
+                # global_lr = lr * decay
+                global_lr = lr
 
                 # Compute local learning rate for this layer
                 if grad_norm == 0 or weight_norm == 0:
@@ -89,7 +90,7 @@ class LARS(Optimizer):
 
                 # Update the momentum term
                 actual_lr = local_lr * global_lr
-                print(f'Local LR: {local_lr}, Actual LR: {actual_lr}, Decay: {decay}, Global LR: {global_lr}, Epoch{epoch}')
+                # print(f'Local LR: {local_lr}, Actual LR: {actual_lr}, Decay: {decay}, Global LR: {global_lr}, Epoch{epoch}')
                 # if weight_norm == 0 or grad_norm == 0:
                 #     print(f'Weight with size {p.size()}: {p}')
                 #     print(f'Grad: {d_p}')
