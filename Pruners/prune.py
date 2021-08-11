@@ -56,7 +56,8 @@ def prune_loop(model, loss, pruner, dataloader, device, sparsity, schedule, scop
 def prune_loop_imp(model, loss, pruner, train_loader, test_loader, device, sparsity, schedule, scope, epochs, path,
                    message, file_name, args, reinitialize=False):
     _, total_params = pruner.stats()
-    epoch = 1
+    # epoch = 1
+    epoch = epochs
     checkpoint_location = os.path.join(args.checkpoint_dir, 'pruning_checkpoint.pth')
     if os.path.exists(checkpoint_location):
         checkpoint = torch.load(checkpoint_location)
@@ -66,6 +67,7 @@ def prune_loop_imp(model, loss, pruner, train_loader, test_loader, device, spars
     while epoch < epochs + 1:
         if epoch > 1:
             if not args.reinitialize:
+                print(f'Loading vgg11_{args.expansion_ratio}x_finetune_{epoch - 1}_best.pt')
                 model.load_state_dict(torch.load(path + f'vgg11_{args.expansion_ratio}x_finetune_{epoch - 1}_best.pt'))
         model.train()
         configuration = dict(learning_rate=args.lr,
@@ -97,14 +99,17 @@ def prune_loop_imp(model, loss, pruner, train_loader, test_loader, device, spars
         if args.reinitialize or epoch == epochs:
             lr = args.lr
             optimizer = LARS(model.parameters(), lr=lr, max_epoch=args.post_epochs)
+            scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.lr_drops, gamma=0.1)
+            args.post_epochs = 300
         else:
             lr = args.lr * 0.01
             optimizer = optim.SGD(model.parameters(), lr=lr, momentum=config.MOMENTUM,
                                   weight_decay=config.WEIGHT_DECAY, nesterov=True)
-        if args.reinitialize:
-            scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.lr_drops, gamma=0.1)
-        else:
             scheduler = None
+        # if args.reinitialize:
+        #     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.lr_drops, gamma=0.1)
+        # else:
+        #     scheduler = None
         # summary = SummaryWriter(f'runs/CIFAR100/VGG/{message}/{file_name}_{epoch}')
 
         model.eval()

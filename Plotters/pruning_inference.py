@@ -1,5 +1,5 @@
 from Utils import pruning_utils, network_utils
-from Utils.config import PRIVATE_PATH, BATCH_SIZE, SEED, TARGET_SIZE, defaultcfg
+from Utils.config import PRIVATE_PATH, BATCH_SIZE, SEED, TARGET_SIZE, defaultcfg_vgg
 from Layers import layers
 
 import os
@@ -16,14 +16,14 @@ def plot_num_of_parameters(ratios, target_size, device):
     before_pruning = []
     after_pruning = []
     for ratio in ratios:
-        curr_cfg = defaultcfg[11].copy()
+        curr_cfg = defaultcfg_vgg[11].copy()
         network_utils.multiplier(curr_cfg, ratio)
         net = network_utils.get_network('vgg11', 'cifar100', curr_cfg, imp=False)
         net.to(device)
         num_of_params = pruning_utils.measure_number_of_parameters(net)
         before_pruning.append(round(num_of_params / 1000000, 1))
         final_model_number = pruning_utils.get_finetune_iterations(target_size, num_of_params, 0.2)
-        path = PRIVATE_PATH + f'/Models/SavedModels/Finetune/vgg11_{ratio}x_finetune_{final_model_number}_best.pt'
+        path = PRIVATE_PATH + f'/Models/SavedModels/VGG/Finetune/vgg11_{ratio}x_finetune_{final_model_number}_best.pt'
         net.load_state_dict(torch.load(path))
         after_pruning.append(
             round((num_of_params - pruning_utils.measure_global_sparsity(net)[0]) / 1000000, 1))
@@ -46,16 +46,23 @@ def plot_num_of_parameters(ratios, target_size, device):
 
 def IMP_other_accuracies(ratios, target_size, test_loader, device, folder_names, labels, colors, markers, title,
                          plot_path):
+    plt.figure(figsize=(10, 10))
     for folder_name in folder_names:
         accuracies = []
-        path = PRIVATE_PATH + f'/Models/SavedModels/{folder_name}/'
+        temp = ''
+        if 'Finetune_Mask_Mix' in folder_name:
+            folder_name, temp = folder_name.split(sep='/')
+        path = PRIVATE_PATH + f'/Models/SavedModels/VGG/{folder_name}/'
         for ratio in ratios:
-            print(f'{ratio}, {folder_name}')
-            curr_cfg = defaultcfg[11].copy()
+            if temp != '':
+                print(f'{ratio}, {folder_name + "/" + temp}')
+            else:
+                print(f'{ratio}, {folder_name}')
+            curr_cfg = defaultcfg_vgg[11].copy()
             network_utils.multiplier(curr_cfg, ratio)
             net = network_utils.get_network('vgg11', 'cifar100', curr_cfg, imp=False)
-            if folder_name == 'SynFlow':
-                net.load_state_dict(torch.load(path + f'vgg11_{ratio}x_best.pt'))
+            if folder_name == 'SynFlow' or folder_name == 'SNIP':
+                net.load_state_dict(torch.load(path + f'vgg11_{ratio}x_{folder_name}_best.pt'))
                 net.to(device)
                 net.eval()
                 accuracies.append(round(network_utils.eval(net, test_loader, device, None)[0].item() * 100, 2))
@@ -73,11 +80,17 @@ def IMP_other_accuracies(ratios, target_size, test_loader, device, folder_names,
                 net.eval()
                 accuracies.append(round(network_utils.eval(net, test_loader, device, None)[0].item() * 100, 2))
             else:
-                net.load_state_dict(torch.load(path + f'vgg11_{ratio}x_SynFlow_best.pt'))
+                if temp == 'SNIP' and ratio == 4.0:
+                    accuracies.append(None)
+                    continue
+                net.load_state_dict(torch.load(path + f'vgg11_{ratio}x_{temp}_MaskMix_best.pt'))
                 net.to(device)
                 net.eval()
                 accuracies.append(round(network_utils.eval(net, test_loader, device, None)[0].item() * 100, 2))
-        idx = folder_names.index(folder_name)
+        if temp != '':
+            idx = folder_names.index(folder_name + '/' + temp)
+        else:
+            idx = folder_names.index(folder_name)
         plt.plot(ratios, accuracies, color=colors[idx], marker=markers[idx], label=labels[idx])
     plt.title(title, fontsize=14)
     plt.xlabel('Expansion Ratio', fontsize=14)
@@ -88,24 +101,24 @@ def IMP_other_accuracies(ratios, target_size, test_loader, device, folder_names,
 
 
 def IMP_pruning_accuracies(ratios, target_size, test_loader, device):
-    # folder_names = ['expansion_ratio_inference', 'Finetune', 'Reinitialize', 'SNIP', 'SynFlow']
-    # labels = ['Unpruned', 'Finetune', 'Reinitialize', 'SNIP', 'SynFlow']
-    # colors = ['red', 'green', 'blue', 'black', 'purple']
-    folder_names = ['expansion_ratio_inference', 'Finetune', 'SNIP', 'SynFlow']
-    labels = ['Unpruned', 'Finetune', 'SNIP', 'SynFlow']
-    colors = ['red', 'green', 'black', 'purple']
-    markers = ['o', 'x', '*', '^']
+    folder_names = ['expansion_ratio_inference', 'Finetune', 'Reinitialize', 'SNIP', 'SynFlow']
+    labels = ['Unpruned', 'Finetune', 'Reinitialize', 'SNIP', 'SynFlow']
+    colors = ['red', 'green', 'maroon', 'black', 'purple']
+    markers = ['o', 'x', 'D', '*', '^']
     for folder_name in folder_names:
         accuracies = []
         temp_ratios = []
-        path = PRIVATE_PATH + f'/Models/SavedModels/{folder_name}/'
+        path = PRIVATE_PATH + f'/Models/SavedModels/VGG/{folder_name}/'
         for ratio in ratios:
             print(f'{ratio}, {folder_name}')
-            curr_cfg = defaultcfg[11].copy()
+            curr_cfg = defaultcfg_vgg[11].copy()
             network_utils.multiplier(curr_cfg, ratio)
             net = network_utils.get_network('vgg11', 'cifar100', curr_cfg, imp=False)
             if folder_name == 'expansion_ratio_inference' or folder_name == 'SNIP' or folder_name == 'SynFlow':
-                net.load_state_dict(torch.load(path + f'vgg11_{ratio}x_best.pt'))
+                if folder_name != 'expansion_ratio_inference':
+                    net.load_state_dict(torch.load(path + f'vgg11_{ratio}x_{folder_name}_best.pt'))
+                else:
+                    net.load_state_dict(torch.load(path + f'vgg11_{ratio}x_best.pt'))
                 net.to(device)
                 net.eval()
                 accuracies.append(round(network_utils.eval(net, test_loader, device, None)[0].item() * 100, 2))
@@ -124,7 +137,7 @@ def IMP_pruning_accuracies(ratios, target_size, test_loader, device):
                 temp_ratios.append(ratio)
         idx = folder_names.index(folder_name)
         plt.plot(ratios, accuracies, color=colors[idx], marker=markers[idx], label=labels[idx])
-    plt.title('VGG11 Accuracies w/ Different Magnitude Pruning Techniques', fontsize=14)
+    plt.title('VGG11 Accuracies w/ Different Pruning Techniques', fontsize=14)
     plt.xlabel('Expansion Ratio', fontsize=14)
     plt.ylabel('Test Accuracy', fontsize=14)
     plt.grid(True)
@@ -168,13 +181,13 @@ def weights_per_layers(ratios, device, target_size):
     markers = ['o', 'x', 's', '*', '^', 'D', 'p']
     fig, axs = plt.subplots(len(folder_names), 2, figsize=(15, 15))
     for i in range(len(folder_names)):
-        path = PRIVATE_PATH + f'/Models/SavedModels/{folder_names[i]}/'
+        path = PRIVATE_PATH + f'/Models/SavedModels/VGG/{folder_names[i]}/'
         for j in range(len(ratios)):
-            curr_cfg = defaultcfg[11].copy()
+            curr_cfg = defaultcfg_vgg[11].copy()
             network_utils.multiplier(curr_cfg, ratios[j])
             net = network_utils.get_network('vgg11', 'cifar100', curr_cfg, imp=False)
             if folder_names[i] == 'SNIP' or folder_names[i] == 'SynFlow':
-                net.load_state_dict(torch.load(path + f'vgg11_{ratios[j]}x_best.pt'))
+                net.load_state_dict(torch.load(path + f'vgg11_{ratios[j]}x_{folder_names[i]}_best.pt'))
                 net.to(device)
                 net.eval()
                 x_conv, y_conv, x_linear, y_linear = weights_per_layers_helper(net)
@@ -226,12 +239,14 @@ def main(args):
                              ['o', 'x', '*'],
                              'VGG11 Accuracies w/ Mask Mixing',
                              'vgg11_pruning_mask_mix_accuracy.png'),
-                'singleshot_imp': (['Finetune', 'Finetune_Singleshot', 'Finetune_Mask_Mix'],
-                                   ['Finetune', 'Finetune w/ Singleshot Magnitude Pruning', 'Finetune w/ SynFlow Mask'],
-                                   ['red', 'blue', 'purple'],
-                                   ['o', 'x', '*'],
+                'singleshot_imp': (['Finetune', 'Finetune_Singleshot', 'Finetune_Mask_Mix/SNIP',
+                                    'Finetune_Mask_Mix/SynFlow', 'SynFlow', 'SNIP'],
+                                   ['Finetune', 'Finetune w/ Singleshot Magnitude Pruning', 'Finetune w/ SNIP Mask',
+                                    'Finetune w/ SynFlow Mask', 'SynFlow', 'SNIP'],
+                                   ['red', 'blue', 'purple', 'black', 'green', 'maroon'],
+                                   ['o', 'x', '*', 'D', '^', 'p'],
                                    'VGG11 Accuracies w/ Different Singleshot Masks',
-                                   'vgg11_singleshot_imp.png')
+                                   'vgg11_singleshot.png')
                 }
     if args.graph == 'num_of_params':
         plot_num_of_parameters(RATIOS, TARGET_SIZE, device)

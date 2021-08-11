@@ -4,7 +4,7 @@ import os.path
 
 import numpy
 
-from Models import IMP_VGGModels, Pruners_VGGModels
+from Models import IMP_VGGModels, Pruners_VGGModels, Pruners_ResNetModels_ImageNet, Pruners_ResNetModels_CIFAR
 from typing import List, Union
 
 import torch
@@ -149,7 +149,7 @@ def get_train_valid_loader(batch_size,
     return train_loader, valid_loader
 
 
-def get_network(name: str, dataset: str, config: List[Union[int, str]], imp=True):
+def get_network(name: str, dataset: str, config: List[Union[int, str]], imp=False):
     ds = dataset.lower()
     net_name = name.lower()
     if net_name.startswith('vgg'):
@@ -161,6 +161,17 @@ def get_network(name: str, dataset: str, config: List[Union[int, str]], imp=True
                 return IMP_VGGModels.IMP_VGG(depth=depth, dataset=ds, cfg=config)
             else:
                 return Pruners_VGGModels.VGG(depth=depth, dataset=ds, cfg=config)
+    elif net_name.startswith('resnet'):
+        depth = int(net_name.replace('resnet', ''))
+        if depth != 18 and depth != 34 and depth != 20:
+            print(ERROR_MESSAGE)
+        else:
+            if depth == 18 and ds == 'imagenet':
+                return Pruners_ResNetModels_ImageNet.resnet18(None, 1000, config)
+            elif depth == 34 and ds == 'imagenet':
+                return Pruners_ResNetModels_ImageNet.resnet34(None, 1000, config)
+            elif depth == 20 and ds == 'cifar100':
+                return Pruners_ResNetModels_CIFAR.resnet20(config, ds)
     else:
         print(ERROR_MESSAGE)
 

@@ -47,11 +47,11 @@ def mask_swap(model, mask_model):
 def run(args):
     file_names = {'snip': 'SNIP', 'grasp': 'GraSP', 'synflow': 'SynFlow'}
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    cfg = config.defaultcfg[11].copy()
+    cfg = config.defaultcfg_vgg[11].copy()
     network_utils.multiplier(cfg, args.expansion_ratio)
 
-    temp_path = config.PRIVATE_PATH + f'/Models/SavedModels/{file_names[args.pruner.lower()]}/' \
-                                      f'vgg11_{args.expansion_ratio}x_best.pt'
+    temp_path = config.PRIVATE_PATH + f'/Models/SavedModels/VGG/{file_names[args.pruner.lower()]}/' \
+                                      f'vgg11_{args.expansion_ratio}x_{file_names[args.pruner.lower()]}_best.pt'
     if os.path.exists(temp_path):
         print(f'Old {file_names[args.pruner.lower()]} (w/ expansion ratio {args.expansion_ratio}x) found')
         mask_model = network_utils.get_network('vgg11', 'cifar100', cfg, imp=False)
@@ -71,13 +71,13 @@ def run(args):
     train_loader = network_utils.dataloader(args.dataset, args.train_batch_size, True)
     test_loader = network_utils.dataloader(args.dataset, args.test_batch_size, False)
 
-    saved_file_name = f'vgg11_{args.expansion_ratio}x_{file_names[args.pruner.lower()]}_MaskMix_{args.lr}LR'
-    path_to_best_model = config.PRIVATE_PATH + f'/Models/SavedModels/Finetune_Mask_Mix/{saved_file_name}_best.pt'
-    path_to_final_model = config.PRIVATE_PATH + f'/Models/SavedModels/Finetune_Mask_Mix/{saved_file_name}_final.pt'
-    path_to_before_train_model = config.PRIVATE_PATH + f'/Models/SavedModels/Finetune_Mask_Mix/' \
+    saved_file_name = f'vgg11_{args.expansion_ratio}x_{file_names[args.pruner.lower()]}_MaskMix'
+    path_to_best_model = config.PRIVATE_PATH + f'/Models/SavedModels/VGG/Finetune_Mask_Mix/{saved_file_name}_best.pt'
+    path_to_final_model = config.PRIVATE_PATH + f'/Models/SavedModels/VGG/Finetune_Mask_Mix/{saved_file_name}_final.pt'
+    path_to_before_train_model = config.PRIVATE_PATH + f'/Models/SavedModels/VGG/Finetune_Mask_Mix/' \
                                                        f'{saved_file_name}_before_training.pt '
-    if not os.path.isdir(config.PRIVATE_PATH + f'/Models/SavedModels/Finetune_Mask_Mix/'):
-        os.mkdir(config.PRIVATE_PATH + f'/Models/SavedModels/Finetune_Mask_Mix/')
+    if not os.path.isdir(config.PRIVATE_PATH + f'/Models/SavedModels/VGG/Finetune_Mask_Mix/'):
+        os.mkdir(config.PRIVATE_PATH + f'/Models/SavedModels/VGG/Finetune_Mask_Mix/')
 
     mask_swap(model, mask_model)
     model.to(device)

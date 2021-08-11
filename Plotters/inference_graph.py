@@ -30,7 +30,7 @@ def load_for_non_parallel(dictionary):
 
 def get_file_names(ratios):
     lst = []
-    all_files = os.listdir(PRIVATE_PATH + '/Models/SavedModels/expansion_ratio_inference/')
+    all_files = os.listdir(PRIVATE_PATH + '/Models/SavedModels/VGG/expansion_ratio_inference/')
     for ratio in ratios:
         for file in all_files:
             if str(ratio) in file and 'best' in file:
@@ -49,7 +49,7 @@ def main():
         current_cfg = defaultcfg[11].copy()
         multiplier(current_cfg, ratio)
         file_to_open = f'vgg11_{ratio}x_best.pt'
-        PATH = PRIVATE_PATH + f'/Models/SavedModels/expansion_ratio_inference/{file_to_open}'
+        PATH = PRIVATE_PATH + f'/Models/SavedModels/VGG/expansion_ratio_inference/{file_to_open}'
         net = get_network('vgg11', 'cifar100', current_cfg, imp=False)
         state_dict = load_for_non_parallel(torch.load(PATH))
         net.load_state_dict(state_dict)
@@ -68,4 +68,4 @@ def main():
             plt.annotate(accuracy, (RATIOS[i], accuracies[i]), textcoords="offset points", xytext=(-13, -20))
         else:
             plt.annotate(accuracy, (RATIOS[i], accuracies[i]), textcoords="offset points", xytext=(-13, 20))
-    plt.savefig(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..')) + '/vgg11_channel_expansion.png')
+    plt.savefig(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')) + '/vgg11_channel_expansion.png')

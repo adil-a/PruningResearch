@@ -5,7 +5,7 @@
 
 import torch.nn as nn
 from Layers import layers
-from Utils.config import defaultcfg
+from Utils.config import defaultcfg_vgg
 import torch
 import math
 
@@ -14,7 +14,7 @@ class VGG(nn.Module):
     def __init__(self, dataset='cifar100', depth=11, init_weights=True, cfg=None, affine=True, batchnorm=True):
         super(VGG, self).__init__()
         if cfg is None:
-            cfg = defaultcfg[depth]
+            cfg = defaultcfg_vgg[depth]
         self._AFFINE = affine
         self.features = self.make_layers(cfg, batchnorm)
         if dataset == 'cifar10' or dataset == 'cinic-10':

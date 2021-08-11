@@ -1,13 +1,13 @@
 import argparse
 import os
 
-from Utils.config import PRIVATE_PATH, BATCH_SIZE, EPOCHS, LR, MOMENTUM, WEIGHT_DECAY, SEED, defaultcfg
+from Utils.config import PRIVATE_PATH, BATCH_SIZE, EPOCHS, LR, MOMENTUM, WEIGHT_DECAY, SEED, defaultcfg_vgg, \
+    defaultcfg_resnet_imagenet, defaultcfg_resnet_cifar
 from Utils.network_utils import get_network, multiplier, dataloader
 from train import train
 from Optimizers.lars import LARS
 
 import torch.optim as optim
-from torch.utils.tensorboard import SummaryWriter
 import wandb
 import torch
 
@@ -31,22 +31,42 @@ def main(args):
 
     current_ratio = args.expansion_ratio
     current_lr = args.lr
-    current_cfg = defaultcfg[11]
+    if 'vgg' in args.model_name.lower():
+        current_cfg = defaultcfg_vgg[int(args.model_name.lower().replace('vgg', ''))].copy()
+    else:
+        if args.dataset.lower() == 'imagenet':
+            current_cfg = defaultcfg_resnet_imagenet[int(args.model_name.lower().replace('resnet', ''))].copy()
+        else:
+            current_cfg = defaultcfg_resnet_cifar[int(args.model_name.lower().replace('resnet', ''))].copy()
     multiplier(current_cfg, current_ratio)
 
     trainloader = dataloader('cifar100', BATCH_SIZE, True)
     testloader = dataloader('cifar100', BATCH_SIZE, False)
-    # for lr in lr_array:
-    print(f'Current VGG11 config being used: {current_cfg} (ratio {current_ratio}x) (Batchsize: {BATCH_SIZE}, '
-          f'LR: {current_lr})')
-    saved_file_name = f'vgg11_{current_ratio}x_{current_lr}'
-    PATH = PRIVATE_PATH + f'/Models/SavedModels/expansion_ratio_inference/{saved_file_name}_best.pt'
-    PATH_FINAL_EPOCH = PRIVATE_PATH + f'/Models/SavedModels/expansion_ratio_inference/' \
-                                      f'{saved_file_name}_final_epoch.pt'
-    if not os.path.isdir(PRIVATE_PATH + '/Models/SavedModels/expansion_ratio_inference/'):
-        os.mkdir(PRIVATE_PATH + '/Models/SavedModels/expansion_ratio_inference/')
+    if args.model_name == 'vgg11':
+        print(f'Current VGG11 config being used: {current_cfg} (ratio {current_ratio}x) (Batchsize: {BATCH_SIZE}, '
+              f'LR: {current_lr})')
+        saved_file_name = f'vgg11_{current_ratio}x_{current_lr}LR'  # TODO remove after finish LR search
+    elif 'resnet' in args.model_name.lower():
+        print(f'Current {args.model_name.upper()} config being used: {current_cfg} (ratio {current_ratio}x) (Batchsize: {BATCH_SIZE}, '
+              f'LR: {current_lr})')
+        saved_file_name = f'{args.model_name.lower()}_{current_ratio}x_{current_lr}LR'  # TODO remove after finish LR search
+    if 'vgg' in args.model_name.lower():
+        PATH = PRIVATE_PATH + f'/Models/SavedModels/VGG/expansion_ratio_inference/{saved_file_name}_best.pt'
+        PATH_FINAL_EPOCH = PRIVATE_PATH + f'/Models/SavedModels/VGG/expansion_ratio_inference/' \
+                                          f'{saved_file_name}_final_epoch.pt'
+        PATH_TO_FIRST_EPOCH = PRIVATE_PATH + f'/Models/SavedModels/VGG/expansion_ratio_inference/' \
+                                             f'{saved_file_name}_first_epoch.pt'
+        if not os.path.isdir(PRIVATE_PATH + '/Models/SavedModels/VGG/expansion_ratio_inference/'):
+            os.mkdir(PRIVATE_PATH + '/Models/SavedModels/VGG/expansion_ratio_inference/')
+    elif 'resnet' in args.model_name.lower():
+        PATH = PRIVATE_PATH + f'/Models/SavedModels/ResNet/expansion_ratio_inference/{saved_file_name}_best.pt'
+        PATH_FINAL_EPOCH = PRIVATE_PATH + f'/Models/SavedModels/ResNet/expansion_ratio_inference/' \
+                                          f'{saved_file_name}_final_epoch.pt'
+        PATH_TO_FIRST_EPOCH = PRIVATE_PATH + f'/Models/SavedModels/ResNet/expansion_ratio_inference/' \
+                                             f'{saved_file_name}_first_epoch.pt'
+        if not os.path.isdir(PRIVATE_PATH + '/Models/SavedModels/ResNet/expansion_ratio_inference/'):
+            os.mkdir(PRIVATE_PATH + '/Models/SavedModels/ResNet/expansion_ratio_inference/')
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # writer = SummaryWriter(f'runs/CIFAR100/VGG/{saved_file_name}')
     wandb.login()
     config = dict(learning_rate=args.lr,
                   dataset=args.dataset,
@@ -58,7 +78,8 @@ def main(args):
     wandb.run.name = saved_file_name
     wandb.run.save()
 
-    net = get_network('vgg11', 'cifar100', current_cfg, imp=False)
+    net = get_network(args.model_name, args.dataset, current_cfg)
+    torch.save(net.state_dict(), PATH_TO_FIRST_EPOCH)
     if torch.cuda.device_count() > 1:
         net = torch.nn.DataParallel(net)
     net.to(device)

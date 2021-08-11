@@ -1,6 +1,8 @@
 # Code based on https://github.com/ganguli-lab/Synaptic-Flow/blob/378fcee0c1dafcecc7ec177e44989419809a106b/main.py
 
 import argparse
+import os
+
 from Pruners import singleshot
 from Utils import config
 from Plotters import pruning_inference, inference_graph
@@ -11,7 +13,7 @@ from Pruners import imp_singleshot_mask_mix
 if __name__ == '__main__':
     config.setup_seed(config.SEED)
     parser = argparse.ArgumentParser()
-    parser.add_argument('--checkpoint-dir', type=str)
+    parser.add_argument('--checkpoint-dir', type=str, default='')
     parser.add_argument('--graph', type=str, choices=['num_of_params', 'pruned_accuracies', 'weights_per_layer',
                                                       'unpruned_accuracies', 'mask_mix', 'singleshot_imp'])
     parser.add_argument('--overparameterization-verification', type=bool)
@@ -79,6 +81,8 @@ if __name__ == '__main__':
                                  'layer-conservation', 'imp-conservation', 'schedule-conservation'],
                         help='experiment name (default: example)')
     args = parser.parse_args()
+    if args.checkpoint_dir == '':
+        args.checkpoint_dir = os.getcwd() + '/'
     if args.imp_singleshot_mask_mix:
         imp_singleshot_mask_mix.run(args)
     elif args.imp is True:
