@@ -3,3 +3,5 @@
 test.py
 /SynFlowSourceCode/
 /Models/SavedModels/
+*.xml
+test2.py

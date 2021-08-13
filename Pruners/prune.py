@@ -2,7 +2,7 @@
 import os.path
 
 from Utils import config
-from Utils.network_utils import eval, pruning_checkpointing
+from Utils.network_utils import eval, pruning_checkpointing, multiplier, get_network
 from train import train_imp
 from Optimizers.lars import LARS
 
@@ -94,8 +94,24 @@ def prune_loop_imp(model, loss, pruner, train_loader, test_loader, device, spars
         print(f'Before pruning: {params_before_pruning} After pruning: {remaining_params} w/ a pruning ratio of '
               f'{1 - (remaining_params / params_before_pruning)}')
         if args.reinitialize:
-            model._initialize_pruned_weights()
-            print('Weights reinitialized')
+            if args.weight_rewind:  # TODO generalize
+                parameter_dict = {}
+                expansion_ratio = args.expansion_ratio
+                current_cfg = config.defaultcfg_vgg[11].copy()
+                multiplier(current_cfg, expansion_ratio)
+                temp_model = get_network(args.model_name.lower(), args.dataset, current_cfg)
+                temp_model.load_state_dict(torch.load(config.PRIVATE_PATH +
+                                                      f'/Models/SavedModels/VGG/expansion_ratio_inference/'
+                                                      f'vgg11_{args.expansion_ratio}x_for_reinit_first_epoch.pt'))
+                temp_model.to(device)
+                for name, param in temp_model.named_parameters():
+                    parameter_dict[name] = param
+                for name, param in model.named_parameters():
+                    param.data = parameter_dict[name]
+                print('Weights rewinded')
+            else:
+                model._initialize_pruned_weights()
+                print('Weights reinitialized')
         if args.reinitialize or epoch == epochs:
             lr = args.lr
             optimizer = LARS(model.parameters(), lr=lr, max_epoch=args.post_epochs)
@@ -106,11 +122,9 @@ def prune_loop_imp(model, loss, pruner, train_loader, test_loader, device, spars
             optimizer = optim.SGD(model.parameters(), lr=lr, momentum=config.MOMENTUM,
                                   weight_decay=config.WEIGHT_DECAY, nesterov=True)
             scheduler = None
-        # if args.reinitialize:
-        #     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.lr_drops, gamma=0.1)
-        # else:
-        #     scheduler = None
-        # summary = SummaryWriter(f'runs/CIFAR100/VGG/{message}/{file_name}_{epoch}')
+        if (args.shuffle and (args.reinitialize or args.imp_singleshot)) or (args.shuffle and epoch == epochs):
+            print('Masks shuffled')
+            pruner.shuffle()
 
         model.eval()
         test_accuracy, _ = eval(model, test_loader, device, None)

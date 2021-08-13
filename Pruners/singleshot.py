@@ -34,13 +34,13 @@ def run(args):
     network_utils.multiplier(cfg, args.expansion_ratio)
     model = network_utils.get_network(args.model_name, args.dataset, cfg).to(device)
     loss = nn.CrossEntropyLoss().to(device)
-    # optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=config.MOMENTUM,
-    #                             weight_decay=config.WEIGHT_DECAY,
-    #                             nesterov=True)
     optimizer = LARS(model.parameters(), lr=args.lr, max_epoch=args.post_epochs)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.lr_drops, gamma=0.1)
 
-    saved_file_name = f'vgg11_{args.expansion_ratio}x_{file_names[args.pruner.lower()]}'  # TODO remove after finishing training new initialization models
+    if args.shuffle:
+        saved_file_name = f'{args.model_name.lower()}_{args.expansion_ratio}x_{file_names[args.pruner.lower()]}_Shuffled'  # TODO remove after finishing training new initialization models
+    else:
+        saved_file_name = f'{args.model_name.lower()}_{args.expansion_ratio}x_{file_names[args.pruner.lower()]}'  # TODO remove after finishing training new initialization models
     configuration = dict(learning_rate=args.lr,
                          dataset=args.dataset,
                          model=args.model_name,
@@ -62,15 +62,26 @@ def run(args):
     target_sparsity = (config.TARGET_SIZE / total_elems)
     prune_loop(model, loss, pruner, prune_loader, device, target_sparsity, args.compression_schedule, 'global',
                args.prune_epochs)
+    if args.shuffle:
+        print('Masks shuffled')
+        pruner.shuffle()
 
-    path_to_best_model = config.PRIVATE_PATH + f'/Models/SavedModels/VGG/{file_names[args.pruner.lower()]}/' \
-                                               f'{saved_file_name}_best.pt'
-    path_to_final_model = config.PRIVATE_PATH + f'/Models/SavedModels/VGG/{file_names[args.pruner.lower()]}/' \
-                                                f'{saved_file_name}_final.pt'
-    if not os.path.isdir(config.PRIVATE_PATH + f'/Models/SavedModels/VGG/{file_names[args.pruner.lower()]}/'):
-        os.mkdir(config.PRIVATE_PATH + f'/Models/SavedModels/VGG/{file_names[args.pruner.lower()]}/')
-    # writer = SummaryWriter(f'runs/CIFAR100/VGG/{file_names[args.pruner.lower()]}/{saved_file_name}')
-    print('Weights reinitialized')
-    model._initialize_pruned_weights()  # TODO remove after finishing training new initialization models
+    if 'vgg' in args.model_name.lower():
+        path_to_best_model = config.PRIVATE_PATH + f'/Models/SavedModels/VGG/{file_names[args.pruner.lower()]}/' \
+                                                   f'{saved_file_name}_best.pt'
+        path_to_final_model = config.PRIVATE_PATH + f'/Models/SavedModels/VGG/{file_names[args.pruner.lower()]}/' \
+                                                    f'{saved_file_name}_final.pt'
+        if not os.path.isdir(config.PRIVATE_PATH + f'/Models/SavedModels/VGG/{file_names[args.pruner.lower()]}/'):
+            os.mkdir(config.PRIVATE_PATH + f'/Models/SavedModels/VGG/{file_names[args.pruner.lower()]}/')
+    elif 'resnet' in args.model_name.lower():
+        path_to_best_model = config.PRIVATE_PATH + f'/Models/SavedModels/ResNet/{file_names[args.pruner.lower()]}/' \
+                                                   f'{saved_file_name}_best.pt'
+        path_to_final_model = config.PRIVATE_PATH + f'/Models/SavedModels/ResNet/{file_names[args.pruner.lower()]}/' \
+                                                    f'{saved_file_name}_final.pt'
+        if not os.path.isdir(config.PRIVATE_PATH + f'/Models/SavedModels/ResNet/{file_names[args.pruner.lower()]}/'):
+            os.mkdir(config.PRIVATE_PATH + f'/Models/SavedModels/ResNet/{file_names[args.pruner.lower()]}/')
+
+    # print('Weights reinitialized')
+    # model._initialize_pruned_weights()  # TODO remove after finishing training new initialization models
     train(model, train_loader, test_loader, optimizer, scheduler, loss, device, None, path_to_best_model,
           path_to_final_model, args.post_epochs, args.checkpoint_dir)

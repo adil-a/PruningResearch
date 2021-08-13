@@ -73,8 +73,12 @@ if __name__ == '__main__':
                               help='whether to prune in train mode (default: False)')
     pruning_args.add_argument('--reinitialize', type=bool, default=False,
                               help='IMP with reinitialization (default: False)')
+    pruning_args.add_argument('--weight-rewind', type=bool, default=False,
+                              help='Rewind weights after pruning (default: False)')
     pruning_args.add_argument('--imp-singleshot', type=bool, default=False,
                               help='IMP singleshot pruning (default: False)')
+    pruning_args.add_argument('--shuffle', type=bool, default=False,
+                              help='Shuffling masks (default: False)')
     # Experiment Hyperparameters
     parser.add_argument('--experiment', type=str, default='singleshot',
                         choices=['singleshot', 'multishot', 'unit-conservation',

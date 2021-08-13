@@ -45,11 +45,11 @@ def main(args):
     if args.model_name == 'vgg11':
         print(f'Current VGG11 config being used: {current_cfg} (ratio {current_ratio}x) (Batchsize: {BATCH_SIZE}, '
               f'LR: {current_lr})')
-        saved_file_name = f'vgg11_{current_ratio}x_{current_lr}LR'  # TODO remove after finish LR search
+        saved_file_name = f'vgg11_{current_ratio}x'
     elif 'resnet' in args.model_name.lower():
         print(f'Current {args.model_name.upper()} config being used: {current_cfg} (ratio {current_ratio}x) (Batchsize: {BATCH_SIZE}, '
               f'LR: {current_lr})')
-        saved_file_name = f'{args.model_name.lower()}_{current_ratio}x_{current_lr}LR'  # TODO remove after finish LR search
+        saved_file_name = f'{args.model_name.lower()}_{current_ratio}x'
     if 'vgg' in args.model_name.lower():
         PATH = PRIVATE_PATH + f'/Models/SavedModels/VGG/expansion_ratio_inference/{saved_file_name}_best.pt'
         PATH_FINAL_EPOCH = PRIVATE_PATH + f'/Models/SavedModels/VGG/expansion_ratio_inference/' \

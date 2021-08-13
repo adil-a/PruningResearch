@@ -39,22 +39,36 @@ def main(args):
     #         os.mkdir(PRIVATE_PATH + '/Models/SavedModels/LR_Rewind')
     #     path = PRIVATE_PATH + '/Models/SavedModels/LR_Rewind/'
     if args.reinitialize:
-        message = 'Reinitializing'
-        saved_file_name = f'vgg11_{expansion_ratio}x_reinitialize'
-        if not os.path.isdir(
-                PRIVATE_PATH + '/Models/SavedModels/VGG/Reinitialize'):
+        if args.shuffle:
+            message = 'Reinitializing w/ mask shuffle'
+            saved_file_name = f'vgg11_{expansion_ratio}x_reinitialize_Shuffled'
+        elif args.weight_rewind:
+            message = 'Reinitializing w/ weight rewinding to 0th epoch'
+            saved_file_name = f'vgg11_{expansion_ratio}x_reinitialize_weight_rewind'
+        else:
+            message = 'Reinitializing'
+            saved_file_name = f'vgg11_{expansion_ratio}x_reinitialize'
+        if not os.path.isdir(PRIVATE_PATH + '/Models/SavedModels/VGG/Reinitialize'):
             os.mkdir(PRIVATE_PATH + '/Models/SavedModels/VGG/Reinitialize')
         path = PRIVATE_PATH + '/Models/SavedModels/VGG/Reinitialize/'
     elif args.imp_singleshot:
-        message = 'Finetuning (Singleshot IMP)'
-        saved_file_name = f'vgg11_{expansion_ratio}x_finetune_singleshot'
+        if args.shuffle:
+            message = 'Finetuning (Singleshot IMP) w/ mask shuffle'
+            saved_file_name = f'vgg11_{expansion_ratio}x_finetune_singleshot_Shuffled'
+        else:
+            message = 'Finetuning (Singleshot IMP)'
+            saved_file_name = f'vgg11_{expansion_ratio}x_finetune_singleshot'
         if not os.path.isdir(
                 PRIVATE_PATH + '/Models/SavedModels/VGG/Finetune_Singleshot'):
             os.mkdir(PRIVATE_PATH + '/Models/SavedModels/VGG/Finetune_Singleshot')
         path = PRIVATE_PATH + '/Models/SavedModels/VGG/Finetune_Singleshot/'
     else:
-        message = 'Finetuning'
-        saved_file_name = f'vgg11_{expansion_ratio}x_finetune'
+        if args.shuffle:
+            message = 'Finetuning w/ mask shuffle on last iteration of pruning'
+            saved_file_name = f'vgg11_{expansion_ratio}x_finetune_Shuffled'
+        else:
+            message = 'Finetuning'
+            saved_file_name = f'vgg11_{expansion_ratio}x_finetune'
         if not os.path.isdir(
                 PRIVATE_PATH + '/Models/SavedModels/VGG/Finetune'):
             os.mkdir(PRIVATE_PATH + '/Models/SavedModels/VGG/Finetune')

@@ -68,10 +68,10 @@ class Pruner:
 
     # Based on https://github.com/facebookresearch/open_lth/blob/master/utils/tensor_utils.py#L43
     def shuffle(self):
-        for mask, param in self.masked_parameters:
-            shape = mask.shape
-            perm = torch.randperm(mask.nelement())
-            mask = mask.reshape(-1)[perm].reshape(shape)
+        for mask, _ in self.masked_parameters:
+            mask_copy = mask.data.view(-1)
+            idx = torch.randperm(mask_copy.numel())
+            mask.data = mask_copy[idx].view(mask.size())
 
     def invert(self):
         for v in self.scores.values():
