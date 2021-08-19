@@ -1,30 +1,25 @@
 import torch
 from Pruners.IMP.finetuning import load_network
-from Utils.config import defaultcfg
-from Utils.network_utils import multiplier
-from Layers import layers
-from Pruners.imp_singleshot_mask_mix import mask_swap
+from Utils.config import defaultcfg_vgg, PRIVATE_PATH
+from Utils.network_utils import multiplier, get_network
 
-cfg = defaultcfg[11].copy()
-multiplier(cfg, 4.0)
-model = load_network('vgg11', 'cifar100', cfg, 4.0)
-# for buffer_name, buffer in model.named_buffers():
-#     print(buffer_name)
-#
-# for module_name, module in model.named_modules():
-#     print(module_name)
+cfg = defaultcfg_vgg[11].copy()
+multiplier(cfg, 1.0)
+model_epoch_0 = get_network('vgg11', 'cifar100', cfg)
 
-# dictionary = mask_swap(None, model)
+model_epoch_0.load_state_dict(torch.load(PRIVATE_PATH + '/Models/SavedModels/VGG/expansion_ratio_inference/'
+                                                        'vgg11_1.0x_for_reinit_first_epoch.pt'))
+model = get_network('vgg11', 'cifar100', cfg)
+model.load_state_dict(torch.load(PRIVATE_PATH + '/Models/SavedModels/VGG/expansion_ratio_inference/'
+                                                'vgg11_1.0x_for_reinit_best.pt'))
+dict = {}
+for name, param in model_epoch_0.named_parameters():
+    print(name, param)
+    dict[name] = param
 
-# print(dictionary.keys())
-# print(dictionary)
-for module_name, module in model.named_modules():
-    # for buffer_name in dictionary.keys():
-        # if module_name != 'features' and module_name != 'classifier':
-    # if module_name in dictionary:
-    #     print(module_name)
-        # break
-    # print(type(module))
-    if isinstance(module, layers.Conv2d):
-        print(f'Weight shape: {module.weight.size()}')
-        print(f'Bias shape: {module.bias.size()}')
+for name, param in model.named_parameters():
+    param.data = dict[name]
+
+for name, param in model.named_parameters():
+    print(name, param)
+

@@ -5,6 +5,7 @@ from Utils import config
 from Utils.network_utils import eval, pruning_checkpointing, multiplier, get_network
 from train import train_imp
 from Optimizers.lars import LARS
+from Models import Pruners_ResNetModels_CIFAR, Pruners_VGGModels, Pruners_ResNetModels_ImageNet
 
 import numpy as np
 import torch
@@ -56,8 +57,8 @@ def prune_loop(model, loss, pruner, dataloader, device, sparsity, schedule, scop
 def prune_loop_imp(model, loss, pruner, train_loader, test_loader, device, sparsity, schedule, scope, epochs, path,
                    message, file_name, args, reinitialize=False):
     _, total_params = pruner.stats()
-    # epoch = 1
-    epoch = epochs
+    epoch = 1
+    # epoch = epochs
     checkpoint_location = os.path.join(args.checkpoint_dir, 'pruning_checkpoint.pth')
     if os.path.exists(checkpoint_location):
         checkpoint = torch.load(checkpoint_location)
@@ -67,8 +68,9 @@ def prune_loop_imp(model, loss, pruner, train_loader, test_loader, device, spars
     while epoch < epochs + 1:
         if epoch > 1:
             if not args.reinitialize:
-                print(f'Loading vgg11_{args.expansion_ratio}x_finetune_{epoch - 1}_best.pt')
-                model.load_state_dict(torch.load(path + f'vgg11_{args.expansion_ratio}x_finetune_{epoch - 1}_best.pt'))
+                print(f'Loading {args.model_name.lower()}_{args.expansion_ratio}x_finetune_{epoch - 1}_best.pt')
+                model.load_state_dict(torch.load(path + f'{args.model_name.lower()}_{args.expansion_ratio}x_'
+                                                        f'finetune_{epoch - 1}_best.pt'))
         model.train()
         configuration = dict(learning_rate=args.lr,
                              dataset=args.dataset,
@@ -113,7 +115,10 @@ def prune_loop_imp(model, loss, pruner, train_loader, test_loader, device, spars
                 model._initialize_pruned_weights()
                 print('Weights reinitialized')
         if args.reinitialize or epoch == epochs:
-            lr = args.lr
+            if isinstance(model, Pruners_VGGModels.VGG):
+                lr = 2.0
+            elif isinstance(model, Pruners_ResNetModels_CIFAR.ResNet):
+                lr = 2.25
             optimizer = LARS(model.parameters(), lr=lr, max_epoch=args.post_epochs)
             scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.lr_drops, gamma=0.1)
             args.post_epochs = 300

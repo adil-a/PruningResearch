@@ -9,6 +9,7 @@ from Utils import network_utils, pruning_utils, config
 from Pruners.prune import prune_loop
 from train import train
 from Optimizers.lars import LARS
+from Models import Pruners_VGGModels, Pruners_ResNetModels_CIFAR
 import wandb
 
 
@@ -38,9 +39,10 @@ def run(args):
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.lr_drops, gamma=0.1)
 
     if args.shuffle:
-        saved_file_name = f'{args.model_name.lower()}_{args.expansion_ratio}x_{file_names[args.pruner.lower()]}_Shuffled'  # TODO remove after finishing training new initialization models
+        saved_file_name = f'{args.model_name.lower()}_{args.expansion_ratio}x_{file_names[args.pruner.lower()]}_' \
+                          f'Shuffled'
     else:
-        saved_file_name = f'{args.model_name.lower()}_{args.expansion_ratio}x_{file_names[args.pruner.lower()]}'  # TODO remove after finishing training new initialization models
+        saved_file_name = f'{args.model_name.lower()}_{args.expansion_ratio}x_{file_names[args.pruner.lower()]}'
     configuration = dict(learning_rate=args.lr,
                          dataset=args.dataset,
                          model=args.model_name,
@@ -48,9 +50,7 @@ def run(args):
                          prune_method=args.pruner)
     wandb.init(project='Pruning Research',
                config=configuration,
-               entity='sparsetraining',
-               group='singleshot',
-               job_type=f'{file_names[args.pruner.lower()]} Maskmixing')
+               entity='sparsetraining')
     wandb.watch(model)
     wandb.run.name = saved_file_name
     wandb.run.save()
@@ -59,7 +59,10 @@ def run(args):
     pruner = pruning_utils.pruner(args.pruner)(pruning_utils.masked_parameters(model))
     _, total_elems = pruner.stats()
     print(f'Total params: {total_elems}')
-    target_sparsity = (config.TARGET_SIZE / total_elems)
+    if isinstance(model, Pruners_VGGModels.VGG):
+        target_sparsity = (config.VGG_TARGET_SIZE / total_elems)
+    elif isinstance(model, Pruners_ResNetModels_CIFAR.ResNet):
+        target_sparsity = (config.RESNET_CIFAR_TARGET_SIZE / total_elems)
     prune_loop(model, loss, pruner, prune_loader, device, target_sparsity, args.compression_schedule, 'global',
                args.prune_epochs)
     if args.shuffle:

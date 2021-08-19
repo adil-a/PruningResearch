@@ -13,7 +13,7 @@ def train(network, train_data, val_data, optimizer, scheduler, criterion, device
     curr_best_accuracy = 0
     best_accuracy_epoch = 0
     step = 0
-    checkpoint_location = os.path.join(checkpoint_dir, 'checkpoint.pth')
+    checkpoint_location = os.path.join(checkpoint_dir, 'checkpoint_1.pth')
     if os.path.exists(checkpoint_location):
         checkpoint = torch.load(checkpoint_location)
         network.load_state_dict(checkpoint['state_dict'])
@@ -69,7 +69,7 @@ def train(network, train_data, val_data, optimizer, scheduler, criterion, device
         epoch += 1
         if epoch % 10 == 0:
             checkpointing(network, optimizer, scheduler, criterion, epoch, torch.get_rng_state(), curr_best_accuracy,
-                          best_accuracy_epoch, step, checkpoint_dir)
+                          best_accuracy_epoch, step, checkpoint_dir, 1)
     print(f'Best accuracy was {curr_best_accuracy} at epoch {best_accuracy_epoch}')
     wandb.run.summary["final_accuracy"] = curr_test_accuracy
     wandb.run.finish()
@@ -84,7 +84,7 @@ def train_imp(network, train_data, test_data, epochs, optimizer, criterion, sche
     step = 0
     curr_best_accuracy = 0
     curr_best_epoch = 0
-    checkpoint_location = os.path.join(checkpoint_dir, 'checkpoint.pth')
+    checkpoint_location = os.path.join(checkpoint_dir, f'checkpoint_{pruning_iteration}.pth')
     if os.path.exists(checkpoint_location):
         checkpoint = torch.load(checkpoint_location)
         network.load_state_dict(checkpoint['state_dict'])
@@ -140,7 +140,7 @@ def train_imp(network, train_data, test_data, epochs, optimizer, criterion, sche
         epoch += 1
         if epoch % 10 == 0:
             checkpointing(network, optimizer, scheduler, criterion, epoch, torch.get_rng_state(), curr_best_accuracy,
-                          curr_best_epoch, step, checkpoint_dir)
+                          curr_best_epoch, step, checkpoint_dir, pruning_iteration)
     print(f'Best accuracy was {curr_best_accuracy} at epoch {curr_best_epoch}')
     wandb.run.summary["final_accuracy"] = curr_test_accuracy
     wandb.run.finish()

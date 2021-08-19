@@ -215,7 +215,7 @@ def eval(network, val_data, device, criterion, validate=False, validate_amount=0
 
 
 def checkpointing(model, optimizer, scheduler, loss, epoch, rng, curr_best_accuracy, best_accuracy_epoch, tb_step,
-                  path):
+                  path, pruning_iteration):
     if scheduler is not None:
         temp = scheduler.state_dict()
     else:
@@ -230,7 +230,7 @@ def checkpointing(model, optimizer, scheduler, loss, epoch, rng, curr_best_accur
         'curr_best_accuracy': curr_best_accuracy,
         'best_accuracy_epoch': best_accuracy_epoch,
         'tb_step': tb_step
-    }, os.path.join(path, 'checkpoint.pth'))
+    }, os.path.join(path, f'checkpoint_{pruning_iteration}.pth'))
 
 
 def pruning_checkpointing(epoch, rng, path):

@@ -1,5 +1,5 @@
 from Utils import pruning_utils, network_utils
-from Utils.config import PRIVATE_PATH, BATCH_SIZE, SEED, TARGET_SIZE, defaultcfg_vgg
+from Utils.config import PRIVATE_PATH, BATCH_SIZE, SEED, VGG_TARGET_SIZE, defaultcfg_vgg
 from Layers import layers
 
 import os
@@ -249,12 +249,12 @@ def main(args):
                                    'vgg11_singleshot.png')
                 }
     if args.graph == 'num_of_params':
-        plot_num_of_parameters(RATIOS, TARGET_SIZE, device)
+        plot_num_of_parameters(RATIOS, VGG_TARGET_SIZE, device)
     elif args.graph == 'pruned_accuracies':
-        IMP_pruning_accuracies(RATIOS, TARGET_SIZE, testloader, device)
+        IMP_pruning_accuracies(RATIOS, VGG_TARGET_SIZE, testloader, device)
     elif args.graph == 'weights_per_layer':
-        weights_per_layers(RATIOS, device, TARGET_SIZE)
+        weights_per_layers(RATIOS, device, VGG_TARGET_SIZE)
     elif args.graph == 'mask_mix' or args.graph == 'singleshot_imp':
         folder_names, labels, colors, markers, title, path = metadata[args.graph]
-        IMP_other_accuracies(RATIOS, TARGET_SIZE, testloader, device, folder_names, labels, colors, markers, title,
+        IMP_other_accuracies(RATIOS, VGG_TARGET_SIZE, testloader, device, folder_names, labels, colors, markers, title,
                              path)
