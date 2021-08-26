@@ -59,6 +59,7 @@ def train(network, train_data, val_data, optimizer, scheduler, criterion, device
                 torch.save(network.state_dict(), general_path + f'{saved_filename}_fifth_epoch.pt')
             elif epoch == 10:
                 torch.save(network.state_dict(), general_path + f'{saved_filename}_tenth_epoch.pt')
+                # TODO remove temp
         print(f'Current accuracy: {curr_test_accuracy}')
         print(f'Loss: {current_loss.item() / len(train_data)}')
         print(f'LR: {curr_lr}')
