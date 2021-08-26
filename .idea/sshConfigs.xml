@@ -2,7 +2,7 @@
 <project version="4">
   <component name="SshConfigs">
     <configs>
-      <sshConfig authType="PASSWORD" host="cluster12.cs.toronto.edu" id="1ec80d58-3dc8-49ce-a8ed-1debe903b884" port="22" nameFormat="DESCRIPTIVE" username="adilasif" />
+      <sshConfig authType="PASSWORD" host="v.vectorinstitute.ai" id="1ec80d58-3dc8-49ce-a8ed-1debe903b884" port="22" nameFormat="DESCRIPTIVE" username="gdzhang" />
     </configs>
   </component>
 </project>

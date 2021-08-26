@@ -45,7 +45,7 @@ def main(args):
     if args.model_name == 'vgg11':
         print(f'Current VGG11 config being used: {current_cfg} (ratio {current_ratio}x) (Batchsize: {BATCH_SIZE}, '
               f'LR: {current_lr})')
-        saved_file_name = f'vgg11_{current_ratio}x'
+        saved_file_name = f'vgg11_{current_ratio}x_for_reinit'  # TODO change after done training temp models
     elif 'resnet' in args.model_name.lower():
         print(f'Current {args.model_name.upper()} config being used: {current_cfg} (ratio {current_ratio}x) (Batchsize: {BATCH_SIZE}, '
               f'LR: {current_lr})')
@@ -56,6 +56,7 @@ def main(args):
                                           f'{saved_file_name}_final_epoch.pt'
         PATH_TO_FIRST_EPOCH = PRIVATE_PATH + f'/Models/SavedModels/VGG/expansion_ratio_inference/' \
                                              f'{saved_file_name}_first_epoch.pt'
+        GENERAL_PATH = PRIVATE_PATH + f'/Models/SavedModels/VGG/expansion_ratio_inference/'
         if not os.path.isdir(PRIVATE_PATH + '/Models/SavedModels/VGG/expansion_ratio_inference/'):
             os.mkdir(PRIVATE_PATH + '/Models/SavedModels/VGG/expansion_ratio_inference/')
     elif 'resnet' in args.model_name.lower():
@@ -64,6 +65,7 @@ def main(args):
                                           f'{saved_file_name}_final_epoch.pt'
         PATH_TO_FIRST_EPOCH = PRIVATE_PATH + f'/Models/SavedModels/ResNet/expansion_ratio_inference/' \
                                              f'{saved_file_name}_first_epoch.pt'
+        GENERAL_PATH = PRIVATE_PATH + f'/Models/SavedModels/ResNet/expansion_ratio_inference/'
         if not os.path.isdir(PRIVATE_PATH + '/Models/SavedModels/ResNet/expansion_ratio_inference/'):
             os.mkdir(PRIVATE_PATH + '/Models/SavedModels/ResNet/expansion_ratio_inference/')
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -90,4 +92,4 @@ def main(args):
     criterion = torch.nn.CrossEntropyLoss().to(device)
 
     train(net, trainloader, testloader, optimizer, scheduler, criterion, device, None, PATH,
-          PATH_FINAL_EPOCH, args.post_epochs, args.checkpoint_dir)
+          PATH_FINAL_EPOCH, args.post_epochs, args.checkpoint_dir, GENERAL_PATH, saved_file_name)

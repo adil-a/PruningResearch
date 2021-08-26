@@ -3,9 +3,16 @@
   <component name="WebServers">
     <option name="servers">
       <webServer id="fb933073-10b8-4fdc-8377-f6097d926545" name="CSLab">
-        <fileTransfer rootFolder="/h/162/adilasif" accessType="SFTP" host="cluster12.cs.toronto.edu" port="22" sshConfigId="1ec80d58-3dc8-49ce-a8ed-1debe903b884" sshConfig="adilasif@cluster12.cs.toronto.edu:22 password">
+        <fileTransfer rootFolder="/h/162/adilasif" accessType="SFTP" host="v.vectorinstitute.ai" port="22" sshConfigId="1ec80d58-3dc8-49ce-a8ed-1debe903b884" sshConfig="gdzhang@v.vectorinstitute.ai:22 password">
           <advancedOptions>
             <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+      <webServer id="fbf06415-5574-4008-99ef-75a5b363f311" name="Vector Institute">
+        <fileTransfer rootFolder="/h/gdzhang/adil_code" accessType="SFTP" host="v.vectorinstitute.ai" port="22" sshConfigId="1ec80d58-3dc8-49ce-a8ed-1debe903b884" sshConfig="gdzhang@v.vectorinstitute.ai:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" muteSftpMessages="true" passiveMode="true" shareSSLContext="true" />
           </advancedOptions>
         </fileTransfer>
       </webServer>
