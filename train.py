@@ -8,7 +8,7 @@ from Optimizers.lars import LARS
 
 
 def train(network, train_data, val_data, optimizer, scheduler, criterion, device, writer, path, path_final_epoch,
-          epochs, checkpoint_dir):
+          epochs, checkpoint_dir, general_path=None, saved_filename=None):
     epoch = 1
     curr_best_accuracy = 0
     best_accuracy_epoch = 0
@@ -54,6 +54,12 @@ def train(network, train_data, val_data, optimizer, scheduler, criterion, device
             curr_best_accuracy = curr_test_accuracy
             torch.save(network.state_dict(), path)
             best_accuracy_epoch = epoch
+        if general_path is not None:
+            if epoch == 5:
+                torch.save(network.state_dict(), general_path + f'{saved_filename}_fifth_epoch.pt')
+            elif epoch == 10:
+                torch.save(network.state_dict(), general_path + f'{saved_filename}_tenth_epoch.pt')
+                # TODO remove temp
         print(f'Current accuracy: {curr_test_accuracy}')
         print(f'Loss: {current_loss.item() / len(train_data)}')
         print(f'LR: {curr_lr}')
