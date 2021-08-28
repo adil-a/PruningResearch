@@ -55,8 +55,11 @@ def main(args):
             message = 'Reinitializing w/ mask shuffle'
             saved_file_name = f'{args.model_name.lower()}_{expansion_ratio}x_reinitialize_Shuffled'
         elif args.weight_rewind:
-            message = 'Reinitializing w/ weight rewinding to 0th epoch'
-            saved_file_name = f'{args.model_name.lower()}_{expansion_ratio}x_reinitialize_weight_rewind'
+            temp_dict = {'first': 0, 'fifth': 5, 'tenth': 10}
+            assert args.weight_rewind_epoch in temp_dict
+            message = f'Reinitializing w/ weight rewinding to {temp_dict[args.weight_rewind_epoch]}th epoch'
+            saved_file_name = f'{args.model_name.lower()}_{expansion_ratio}x_reinitialize_weight_rewind_' \
+                              f'{args.weight_rewind_epoch}_epoch'
         else:
             message = 'Reinitializing'
             saved_file_name = f'{args.model_name.lower()}_{expansion_ratio}x_reinitialize'
