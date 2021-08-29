@@ -27,6 +27,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
+import math
 
 from Layers import layers
 
@@ -116,6 +117,25 @@ class ResNet(nn.Module):
         out = out.view(out.size(0), -1)
         out = self.linear(out)
         return out
+
+    def _initialize_pruned_weights(self):
+        for m in self.modules():
+            if isinstance(m, (layers.Linear, layers.Conv2d)):
+                self._pruned_kaiming_normal_(m.weight, m.weight_mask)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, layers.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+
+    def _pruned_kaiming_normal_(self, tensor, mask, a=0, mode='fan_in', nonlinearity='relu'):
+        fan = nn.init._calculate_correct_fan(tensor, mode)
+        gain = nn.init.calculate_gain(nonlinearity, a)
+        ratio_of_remaining_weights = torch.sum(torch.flatten(mask)).item() / torch.numel(mask)
+        fan = int(fan * ratio_of_remaining_weights)
+        std = gain / math.sqrt(fan)
+        with torch.no_grad():
+            return tensor.normal_(0, std)
 
 
 def resnet20(filter_sizes, dataset):

@@ -75,6 +75,8 @@ if __name__ == '__main__':
                               help='IMP with reinitialization (default: False)')
     pruning_args.add_argument('--weight-rewind', type=bool, default=False,
                               help='Rewind weights after pruning (default: False)')
+    pruning_args.add_argument('--weight-rewind-epoch', type=str,
+                              help='Which epoch weights are rewinded to after pruning')
     pruning_args.add_argument('--imp-singleshot', type=bool, default=False,
                               help='IMP singleshot pruning (default: False)')
     pruning_args.add_argument('--shuffle', type=bool, default=False,
@@ -92,7 +94,7 @@ if __name__ == '__main__':
     elif args.imp is True:
         finetuning.main(args)
     elif args.graph == 'unpruned_accuracies':
-        inference_graph.main()
+        inference_graph.main(args)
     elif args.graph is not None:
         pruning_inference.main(args)
     elif args.overparameterization_verification:

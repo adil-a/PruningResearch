@@ -96,15 +96,28 @@ def prune_loop_imp(model, loss, pruner, train_loader, test_loader, device, spars
         print(f'Before pruning: {params_before_pruning} After pruning: {remaining_params} w/ a pruning ratio of '
               f'{1 - (remaining_params / params_before_pruning)}')
         if args.reinitialize:
-            if args.weight_rewind:  # TODO generalize
+            if args.weight_rewind:
                 parameter_dict = {}
                 expansion_ratio = args.expansion_ratio
-                current_cfg = config.defaultcfg_vgg[11].copy()
+                if 'vgg' in args.model_name.lower():
+                    current_cfg = config.defaultcfg_vgg[int(args.model_name.lower().replace('vgg', ''))].copy()
+                else:
+                    if args.dataset.lower() == 'imagenet':
+                        current_cfg = config.defaultcfg_resnet_imagenet[int(args.model_name.lower().replace('resnet', ''))].copy()
+                    else:
+                        current_cfg = config.defaultcfg_resnet_cifar[int(args.model_name.lower().replace('resnet', ''))].copy()
                 multiplier(current_cfg, expansion_ratio)
                 temp_model = get_network(args.model_name.lower(), args.dataset, current_cfg)
-                temp_model.load_state_dict(torch.load(config.PRIVATE_PATH +
-                                                      f'/Models/SavedModels/VGG/expansion_ratio_inference/'
-                                                      f'vgg11_{args.expansion_ratio}x_for_reinit_first_epoch.pt'))
+                if 'vgg' in args.model_name.lower():
+                    temp_model.load_state_dict(torch.load(config.PRIVATE_PATH +
+                                                          f'/Models/SavedModels/VGG/expansion_ratio_inference/'
+                                                          f'{args.model_name.lower()}_{args.expansion_ratio}x_'
+                                                          f'for_reinit_{args.weight_rewind_epoch}_epoch.pt'))
+                elif 'resnet' in args.model_name.lower():
+                    temp_model.load_state_dict(torch.load(config.PRIVATE_PATH +
+                                                          f'/Models/SavedModels/ResNet/expansion_ratio_inference/'
+                                                          f'{args.model_name.lower()}_{args.expansion_ratio}x_'
+                                                          f'{args.weight_rewind_epoch}_epoch.pt'))
                 temp_model.to(device)
                 for name, param in temp_model.named_parameters():
                     parameter_dict[name] = param
