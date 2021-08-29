@@ -94,7 +94,7 @@ if __name__ == '__main__':
     elif args.imp is True:
         finetuning.main(args)
     elif args.graph == 'unpruned_accuracies':
-        inference_graph.main()
+        inference_graph.main(args)
     elif args.graph is not None:
         pruning_inference.main(args)
     elif args.overparameterization_verification:

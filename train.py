@@ -6,6 +6,7 @@ import wandb
 from Utils.network_utils import eval, checkpointing
 from Optimizers.lars import LARS
 
+
 def train(network, train_data, val_data, optimizer, scheduler, criterion, device, writer, path, path_final_epoch,
           epochs, checkpoint_dir, general_path=None, saved_filename=None):
     epoch = 1
