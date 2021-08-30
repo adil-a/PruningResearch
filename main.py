@@ -15,7 +15,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--checkpoint-dir', type=str, default='')
     parser.add_argument('--graph', type=str, choices=['num_of_params', 'pruned_accuracies', 'weights_per_layer',
-                                                      'unpruned_accuracies', 'mask_mix', 'singleshot_imp'])
+                                                      'unpruned_accuracies', 'mask_mix', 'singleshot_imp',
+                                                      'rewind_epochs'])
     parser.add_argument('--overparameterization-verification', type=bool)
     parser.add_argument('--imp', type=bool)
     parser.add_argument('--imp-singleshot-mask-mix', type=bool)
