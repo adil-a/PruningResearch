@@ -12,7 +12,7 @@ LR = 0.1
 MOMENTUM = 0.9
 WEIGHT_DECAY = 5e-4
 VGG_TARGET_SIZE = 5703649  # gotten from number of trainable parameters in VGG11 w/ expansion ratio of 1.0x times 0.2
-RESNET_CIFAR_TARGET_SIZE = 274196  # gotten from number of params in ResNet20 model with 1.0 expansion ratio
+RESNET_CIFAR_TARGET_SIZE = 2425972  # gotten from number of params in ResNet20 model with 3.0 expansion ratio
 SEED = 1
 defaultcfg_vgg = {
     11: [64, 'M', 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],

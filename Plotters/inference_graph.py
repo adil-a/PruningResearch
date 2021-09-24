@@ -37,7 +37,7 @@ def main(args):
     if args.model_name.lower() == 'vgg11':
         RATIOS = [0.25, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0]
     elif args.model_name.lower() == 'resnet20':
-        RATIOS = [1.0, 1.5, 2.0, 3.0, 5.0, 8.0, 10.0]
+        RATIOS = [1.0, 1.5, 2.0, 3.0, 5.0, 8.0, 10.0, 15.0, 20.0]
     accuracies = []
     for ratio in RATIOS:
         print(f'{ratio}x')

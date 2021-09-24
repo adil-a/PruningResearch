@@ -16,7 +16,7 @@ if __name__ == '__main__':
     parser.add_argument('--checkpoint-dir', type=str, default='')
     parser.add_argument('--graph', type=str, choices=['num_of_params', 'pruned_accuracies', 'weights_per_layer',
                                                       'unpruned_accuracies', 'mask_mix', 'singleshot_imp',
-                                                      'rewind_epochs'])
+                                                      'rewind_epochs', 'rewind_masks', 'rewind_masks_weights'])
     parser.add_argument('--overparameterization-verification', type=bool)
     parser.add_argument('--imp', type=bool)
     parser.add_argument('--imp-singleshot-mask-mix', type=bool)
@@ -82,6 +82,8 @@ if __name__ == '__main__':
                               help='IMP singleshot pruning (default: False)')
     pruning_args.add_argument('--shuffle', type=bool, default=False,
                               help='Shuffling masks (default: False)')
+    pruning_args.add_argument('--prune-to-epoch', type=int, default=0,
+                              help='At what epoch during training to apply singleshot pruning')
     # Experiment Hyperparameters
     parser.add_argument('--experiment', type=str, default='singleshot',
                         choices=['singleshot', 'multishot', 'unit-conservation',

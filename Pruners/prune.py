@@ -98,6 +98,7 @@ def prune_loop_imp(model, loss, pruner, train_loader, test_loader, device, spars
         if args.reinitialize:
             if args.weight_rewind:
                 parameter_dict = {}
+                batchnorm_dict = {}
                 expansion_ratio = args.expansion_ratio
                 if 'vgg' in args.model_name.lower():
                     current_cfg = config.defaultcfg_vgg[int(args.model_name.lower().replace('vgg', ''))].copy()
@@ -123,6 +124,36 @@ def prune_loop_imp(model, loss, pruner, train_loader, test_loader, device, spars
                     parameter_dict[name] = param
                 for name, param in model.named_parameters():
                     param.data = parameter_dict[name]
+                # if 'vgg' in args.model_name.lower():
+                #     pass
+                if 'resnet' in args.model_name.lower() or 'vgg' in args.model_name.lower():
+                    for buffer_name, buffer in temp_model.named_buffers():
+                        if ('bn' in buffer_name and 'resnet' in args.model_name.lower()) or \
+                                ('vgg' in args.model_name.lower() and ('running_mean' in buffer_name or
+                                                                       'running_var' in buffer_name or
+                                                                       'num_batches_tracked' in buffer_name)):
+                            period_positions = [pos for pos, char in enumerate(buffer_name) if char == '.']
+                            module_name = buffer_name[:period_positions[-1]]
+                            if module_name not in batchnorm_dict:
+                                batchnorm_dict[module_name] = {}
+                            if 'running_mean' in buffer_name:
+                                batchnorm_dict[module_name]['running_mean'] = buffer
+                            elif 'running_var' in buffer_name:
+                                batchnorm_dict[module_name]['running_var'] = buffer
+                            elif 'num_batches_tracked' in buffer_name:
+                                batchnorm_dict[module_name]['num_batches_tracked'] = buffer
+                    # print(batchnorm_dict)
+                    for module_name, module in model.named_modules():
+                        if module_name in batchnorm_dict:
+                            module.running_mean.data = batchnorm_dict[module_name]['running_mean']
+                            module.running_var.data = batchnorm_dict[module_name]['running_var']
+                            module.num_batches_tracked.data = batchnorm_dict[module_name]['num_batches_tracked']
+                    # print('buffers in temp model')
+                    # for buffer_name, buffer in temp_model.named_buffers():
+                    #     print((buffer_name, buffer))
+                    # print('buffers in new model')
+                    # for buffer_name, buffer in model.named_buffers():
+                    #     print((buffer_name, buffer))
                 print('Weights rewinded')
             else:
                 model._initialize_pruned_weights()

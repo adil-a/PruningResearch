@@ -45,9 +45,8 @@ def main(args):
     if args.model_name == 'vgg11':
         print(f'Current VGG11 config being used: {current_cfg} (ratio {current_ratio}x) (Batchsize: {BATCH_SIZE}, '
               f'LR: {current_lr})')
-        saved_file_name = f'vgg11_{current_ratio}x_for_reinit'  # TODO change after done training temp models
+        saved_file_name = f'vgg11_{current_ratio}x'
     elif 'resnet' in args.model_name.lower():
-        # TODO remove temp
         print(f'Current {args.model_name.upper()} config being used: {current_cfg} (ratio {current_ratio}x) (Batchsize: {BATCH_SIZE}, '
               f'LR: {current_lr})')
         saved_file_name = f'{args.model_name.lower()}_{current_ratio}x'

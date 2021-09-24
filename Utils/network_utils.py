@@ -32,7 +32,7 @@ def dimension(dataset):
     return input_shape, num_classes
 
 
-def dataloader(dataset, batch_size, train, length=None, workers=1):
+def dataloader(dataset, batch_size, train, length=None, workers=10):
     # Dataset
     # if dataset == 'cifar10':
     #     mean, std = (0.491, 0.482, 0.447), (0.247, 0.243, 0.262)
@@ -74,7 +74,7 @@ def dataloader(dataset, batch_size, train, length=None, workers=1):
 
     # Dataloader
     use_cuda = torch.cuda.is_available()
-    kwargs = {'num_workers': workers, 'pin_memory': False} if use_cuda else {}  # TODO change this
+    kwargs = {'num_workers': workers, 'pin_memory': True} if use_cuda else {}
     shuffle = train is True
     if length is not None:
         indices = torch.randperm(len(dataset))[:length]

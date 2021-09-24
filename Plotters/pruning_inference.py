@@ -29,7 +29,7 @@ def plot_num_of_parameters(ratios, target_size, device, args):
         net.to(device)
         num_of_params = pruning_utils.measure_number_of_parameters(net)
         before_pruning.append(round(num_of_params / 1000000, 1))
-        if args.model_name.lower() == 'resnet20' and ratio == 1.0:
+        if args.model_name.lower() == 'resnet20' and ratio == 3.0:
             after_pruning.append(round(num_of_params / 1000000, 1))
             continue
         final_model_number = pruning_utils.get_finetune_iterations(target_size, num_of_params, 0.2)
@@ -70,10 +70,14 @@ def IMP_other_accuracies(ratios, target_size, test_loader, device, folder_names,
         if 'Finetune_Mask_Mix' in folder_name:
             folder_name, temp = folder_name.split(sep='/')
         if 'vgg' in args.model_name.lower():
-            path = PRIVATE_PATH + f'/Models/SavedModels/VGG/{folder_name}'
+            path = PRIVATE_PATH + f'/Models/SavedModels/VGG/{folder_name}/'
         elif 'resnet' in args.model_name.lower():
-            path = PRIVATE_PATH + f'/Models/SavedModels/ResNet/{folder_name}'
+            path = PRIVATE_PATH + f'/Models/SavedModels/ResNet/{folder_name}/'
         for ratio in ratios:
+            if ratio == 3.0 or ((ratio == 20.0 or ratio == 15.0) and folder_name == 'Finetune_Mask_Mix'
+                                and temp == 'SynFlow') or (ratio == 20.0 and temp == 'SNIP'):
+                accuracies.append(None)
+                continue
             if temp != '':
                 print(f'{ratio}, {folder_name + "/" + temp}')
             else:
@@ -135,17 +139,21 @@ def IMP_pruning_accuracies(ratios, target_size, test_loader, device, args):
         colors = ['red', 'green', 'maroon', 'black', 'purple']
         markers = ['o', 'x', 'D', '*', '^']
     elif 'resnet' in args.model_name.lower():
-        folder_names = ['expansion_ratio_inference', 'Finetune', 'Reinitialize', 'SynFlow']
-        labels = ['Unpruned', 'Finetune', 'Reinitialize', 'SynFlow']
-        colors = ['red', 'green', 'maroon', 'purple']
-        markers = ['o', 'x', 'D', '^']
+        # folder_names = ['expansion_ratio_inference', 'Finetune', 'Reinitialize', 'SynFlow']
+        # labels = ['Unpruned', 'Finetune', 'Reinitialize', 'SynFlow']
+        # colors = ['red', 'green', 'maroon', 'purple']
+        # markers = ['o', 'x', 'D', '^']
+        folder_names = ['expansion_ratio_inference', 'Finetune', 'Reinitialize', 'SNIP', 'SynFlow']
+        labels = ['Unpruned', 'Finetune', 'Reinitialize', 'SNIP', 'SynFlow']
+        colors = ['red', 'green', 'maroon', 'black', 'purple']
+        markers = ['o', 'x', 'D', '*', '^']
     for folder_name in folder_names:
         accuracies = []
         temp_ratios = []
         if 'vgg' in args.model_name.lower():
-            path = PRIVATE_PATH + f'/Models/SavedModels/VGG/{folder_name}'
+            path = PRIVATE_PATH + f'/Models/SavedModels/VGG/{folder_name}/'
         elif 'resnet' in args.model_name.lower():
-            path = PRIVATE_PATH + f'/Models/SavedModels/ResNet/{folder_name}'
+            path = PRIVATE_PATH + f'/Models/SavedModels/ResNet/{folder_name}/'
         for ratio in ratios:
             print(f'{ratio}, {folder_name}')
             if 'vgg' in args.model_name.lower():
@@ -158,6 +166,15 @@ def IMP_pruning_accuracies(ratios, target_size, test_loader, device, args):
             network_utils.multiplier(curr_cfg, ratio)
             net = network_utils.get_network(args.model_name, args.dataset, curr_cfg)
             if folder_name == 'expansion_ratio_inference' or folder_name == 'SNIP' or folder_name == 'SynFlow':
+                if (ratio == 3.0) and args.model_name.lower() == 'resnet20' and (folder_name == 'SynFlow' or
+                                                                                 folder_name == 'SNIP'):
+                    temp_ratios.append(ratio)
+                    accuracies.append(None)
+                    continue
+                if ratio == 20.0 and args.model_name.lower() == 'resnet20' and folder_name == 'SNIP':
+                    temp_ratios.append(ratio)
+                    accuracies.append(None)
+                    continue
                 if folder_name != 'expansion_ratio_inference':
                     net.load_state_dict(torch.load(path + f'{args.model_name.lower()}_{ratio}x_{folder_name}_best.pt'))
                 else:
@@ -167,14 +184,23 @@ def IMP_pruning_accuracies(ratios, target_size, test_loader, device, args):
                 accuracies.append(round(network_utils.eval(net, test_loader, device, None)[0].item() * 100, 2))
                 temp_ratios.append(ratio)
             else:
+                if ratio == 3.0 and args.model_name.lower() == 'resnet20':
+                    accuracies.append(None)
+                    temp_ratios.append(ratio)
+                    continue
                 num_of_params = pruning_utils.measure_number_of_parameters(net)
                 if folder_name == 'Reinitialize':
                     final_model_number = 1
                 else:
                     final_model_number = pruning_utils.get_finetune_iterations(target_size, num_of_params, 0.2)
-                net.load_state_dict(torch.load(path +
-                                               f'{args.model_name.lower()}_{ratio}x_{folder_name.lower()}_'
-                                               f'{final_model_number}_best.pt'))
+                if folder_name == 'Reinitialize':
+                    net.load_state_dict(torch.load(path +
+                                                   f'{args.model_name.lower()}_{ratio}x_{folder_name.lower()}'
+                                                   f'_weight_rewind_first_epoch_{final_model_number}_best.pt'))
+                else:
+                    net.load_state_dict(torch.load(path +
+                                                   f'{args.model_name.lower()}_{ratio}x_{folder_name.lower()}_'
+                                                   f'{final_model_number}_best.pt'))
                 net.to(device)
                 net.eval()
                 accuracies.append(round(network_utils.eval(net, test_loader, device, None)[0].item() * 100, 2))
@@ -269,18 +295,30 @@ def weights_per_layers(ratios, device, target_size):
 
 def reinit_diff_epochs(ratios, test_loader, device, args):
     epoch_data = {0: ('first', []), 1: ('fifth', []), 2: ('tenth', [])}
-    path = PRIVATE_PATH + f'/Models/SavedModels/VGG/Reinitialize'
+    if 'vgg' in args.model_name.lower():
+        path = PRIVATE_PATH + f'/Models/SavedModels/VGG/Reinitialize'
+    elif 'resnet' in args.model_name.lower():
+        path = PRIVATE_PATH + f'/Models/SavedModels/ResNet/Reinitialize'
     colours = ['green', 'black', 'purple']
     markers = ['o', 'x', '*']
     labels = ['Reinitialize to 1st epoch', 'Reinitialize to 5th epoch', 'Reinitialize to 10th epoch']
 
     for ratio in ratios:
         for i in range(3):
-            curr_cfg = defaultcfg_vgg[int(args.model_name.lower().replace('vgg', ''))].copy()
+            if 'resnet' in args.model_name.lower() and ratio == 3.0:
+                epoch_data[i][1].append(None)
+                continue
+            if 'vgg' in args.model_name.lower():
+                curr_cfg = defaultcfg_vgg[int(args.model_name.lower().replace('vgg', ''))].copy()
+            else:
+                if args.dataset.lower() == 'imagenet':
+                    curr_cfg = defaultcfg_resnet_imagenet[int(args.model_name.lower().replace('resnet', ''))].copy()
+                else:
+                    curr_cfg = defaultcfg_resnet_cifar[int(args.model_name.lower().replace('resnet', ''))].copy()
             network_utils.multiplier(curr_cfg, ratio)
             net = network_utils.get_network(args.model_name, args.dataset, curr_cfg)
-            net.load_state_dict(torch.load(path + f'/vgg11_{ratio}x_reinitialize_weight_rewind_'
-                                                  f'{epoch_data[i][0]}_1_best.pt'))
+            net.load_state_dict(torch.load(path + f'/{args.model_name.lower()}_{ratio}x_reinitialize_weight_rewind_'
+                                                  f'{epoch_data[i][0]}_epoch_1_best.pt'))
             net.to(device)
             net.eval()
             epoch_data[i][1].append(round(network_utils.eval(net, test_loader, device, None)[0].item() * 100, 2))
@@ -288,22 +326,135 @@ def reinit_diff_epochs(ratios, test_loader, device, args):
     for i in range(3):
         plt.plot(ratios, epoch_data[i][1], color=f'{colours[i]}', marker=f'{markers[i]}', label=f'{labels[i]}')
 
-    plt.title(f'Accuracies after rewinding weights to different epochs for VGG11 CIFAR100', fontsize=14)
+    dict = {'vgg11': 'VGG11', 'resnet20': 'ResNet20'}
+    plt.title(f'Accuracies after rewinding weights to different epochs for {dict[args.model_name.lower()]} '
+              f'{args.dataset.upper()}', fontsize=14)
     plt.xlabel('Expansion Ratio', fontsize=14)
     plt.ylabel('Accuracy', fontsize=14)
     plt.grid(True)
     plt.legend(loc="upper left")
-    for i in range(3):
-        for j, accuracy in enumerate(epoch_data[i][1]):
-            plt.annotate(accuracy, (ratios[i], epoch_data[i][1][j]))
-    plt.savefig(os.path.abspath(os.path.join(os.path.dirname(__file__), '')) + f'/vgg11_weight_rewinding.png')
+    # for i in range(3):
+    #     for j, accuracy in enumerate(epoch_data[i][1]):
+    #         plt.annotate(accuracy, (ratios[i], epoch_data[i][1][j]))
+    plt.savefig(os.path.abspath(os.path.join(os.path.dirname(__file__), '')) + f'/{args.model_name.lower()}_'
+                                                                               f'weight_rewinding.png')
+
+
+def rewind_masks(ratios, test_loader, device, args):
+    epoch_data = {0: (5, {"SynFlow": [], "SNIP": []}), 1: (10, {"SynFlow": [], "SNIP": []})}
+    if 'vgg' in args.model_name.lower():
+        path = PRIVATE_PATH + f'/Models/SavedModels/VGG/Finetune_Mask_Mix'
+    elif 'resnet' in args.model_name.lower():
+        path = PRIVATE_PATH + f'/Models/SavedModels/ResNet/Finetune_Mask_Mix'
+    colours = ['black', 'purple', 'blue', 'green']
+    markers = ['x', '*', '+', '^']
+    labels = ['Rewind masks to 5th epoch (SynFlow) on final weights',
+              'Rewind masks to 10th epoch (SynFlow) on final weights',
+              'Rewind masks to 5th epoch (SNIP) on final weights',
+              'Rewind masks to 10th epoch (SNIP) on final weights']
+    pruning_types = ['SynFlow', 'SNIP']
+
+    for ratio in ratios:
+        for i in range(2):
+            for pruning_type in pruning_types:
+                if 'vgg' in args.model_name.lower() and ratio == 4.0 and i == 1:
+                    epoch_data[i][1][pruning_type].append(None)
+                    continue
+                if 'resnet' in args.model_name.lower() and (ratio == 3.0 or ratio == 20.0):
+                    epoch_data[i][1][pruning_type].append(None)
+                    continue
+                if 'vgg' in args.model_name.lower():
+                    curr_cfg = defaultcfg_vgg[int(args.model_name.lower().replace('vgg', ''))].copy()
+                else:
+                    if args.dataset.lower() == 'imagenet':
+                        curr_cfg = defaultcfg_resnet_imagenet[int(args.model_name.lower().replace('resnet', ''))].copy()
+                    else:
+                        curr_cfg = defaultcfg_resnet_cifar[int(args.model_name.lower().replace('resnet', ''))].copy()
+                network_utils.multiplier(curr_cfg, ratio)
+                net = network_utils.get_network(args.model_name, args.dataset, curr_cfg)
+                net.load_state_dict(torch.load(path + f'/{args.model_name.lower()}_{ratio}x_{pruning_type}_MaskMix_'
+                                                      f'masks_rewind_epoch_{epoch_data[i][0]}_best.pt'))
+                net.to(device)
+                net.eval()
+                epoch_data[i][1][pruning_type].append(round(network_utils.eval(net, test_loader,
+                                                                               device, None)[0].item() * 100, 2))
+    temp_counter = 0
+    for i in range(2):
+        for pruning_type in pruning_types:
+            plt.plot(ratios, epoch_data[i][1][pruning_type], color=f'{colours[temp_counter]}',
+                     marker=f'{markers[temp_counter]}', label=f'{labels[temp_counter]}')
+            temp_counter += 1
+
+    dict = {'vgg11': 'VGG11', 'resnet20': 'ResNet20'}
+    plt.title(f'Accuracies after rewinding masks to different epochs for {dict[args.model_name.lower()]} '
+              f'{args.dataset.upper()}', fontsize=14)
+    plt.xlabel('Expansion Ratio', fontsize=14)
+    plt.ylabel('Accuracy', fontsize=14)
+    plt.grid(True)
+    plt.legend(loc="upper left")
+    plt.savefig(os.path.abspath(os.path.join(os.path.dirname(__file__), '')) + f'/{args.model_name.lower()}_'
+                                                                               f'mask_rewinding.png')
+
+
+def rewind_masks_weights(ratios, test_loader, device, args):
+    epoch_data = {0: (5, {"Mag": []}), 1: (10, {"Mag": []})}
+    if 'vgg' in args.model_name.lower():
+        path = PRIVATE_PATH + f'/Models/SavedModels/VGG/Finetune_Mask_Mix'
+    elif 'resnet' in args.model_name.lower():
+        path = PRIVATE_PATH + f'/Models/SavedModels/ResNet/Finetune_Mask_Mix'
+    colours = ['black', 'purple', 'blue', 'green']
+    markers = ['x', '*', '+', '^']
+    labels = ['Rewind weights & masks to 5th epoch (Mag)',
+              'Rewind weights & masks to 10th epoch (Mag)']
+    pruning_types = ['Mag']
+
+    for ratio in ratios:
+        for i in range(2):
+            for pruning_type in pruning_types:
+                # if 'vgg' in args.model_name.lower() and ratio == 4.0 and i == 1:
+                #     epoch_data[i][1][pruning_type].append(None)
+                #     continue
+                # if 'resnet' in args.model_name.lower() and (ratio == 3.0 or ratio == 20.0):
+                #     epoch_data[i][1][pruning_type].append(None)
+                #     continue
+                if 'vgg' in args.model_name.lower():
+                    curr_cfg = defaultcfg_vgg[int(args.model_name.lower().replace('vgg', ''))].copy()
+                else:
+                    if args.dataset.lower() == 'imagenet':
+                        curr_cfg = defaultcfg_resnet_imagenet[int(args.model_name.lower().replace('resnet', ''))].copy()
+                    else:
+                        curr_cfg = defaultcfg_resnet_cifar[int(args.model_name.lower().replace('resnet', ''))].copy()
+                network_utils.multiplier(curr_cfg, ratio)
+                net = network_utils.get_network(args.model_name, args.dataset, curr_cfg)
+                net.load_state_dict(torch.load(path + f'/{args.model_name.lower()}_{ratio}x_{pruning_type}_MaskMix_'
+                                                      f'masks_rewind_epoch_{epoch_data[i][0]}_best.pt'))
+                net.to(device)
+                net.eval()
+                epoch_data[i][1][pruning_type].append(round(network_utils.eval(net, test_loader,
+                                                                               device, None)[0].item() * 100, 2))
+    temp_counter = 0
+    for i in range(2):
+        for pruning_type in pruning_types:
+            plt.plot(ratios, epoch_data[i][1][pruning_type], color=f'{colours[temp_counter]}',
+                     marker=f'{markers[temp_counter]}', label=f'{labels[temp_counter]}')
+            temp_counter += 1
+
+    dict = {'vgg11': 'VGG11', 'resnet20': 'ResNet20'}
+    plt.title(f'Accuracies after rewinding masks and weights to different epochs for {dict[args.model_name.lower()]} '
+              f'{args.dataset.upper()}', fontsize=14)
+    plt.xlabel('Expansion Ratio', fontsize=14)
+    plt.ylabel('Accuracy', fontsize=14)
+    plt.grid(True)
+    plt.legend(loc="upper left")
+    plt.savefig(os.path.abspath(os.path.join(os.path.dirname(__file__), '')) + f'/{args.model_name.lower()}_'
+                                                                               f'weight_mask_rewinding.png')
 
 
 def main(args):
     torch.manual_seed(SEED)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     RATIOS_VGG = [1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0]
-    RATIOS_RESNET_CIFAR = [1.0, 1.5, 2.0, 3.0, 5.0, 8.0, 10.0]
+    RATIOS_RESNET_CIFAR = [3.0, 5.0, 8.0, 10.0, 15.0, 20.0]
     test_transform = transforms.Compose(
         [transforms.ToTensor(),
          transforms.Normalize((0.5071, 0.4865, 0.4409), (0.2673, 0.2564, 0.2762))]
@@ -334,11 +485,11 @@ def main(args):
                                              'VGG11 Accuracies w/ Different Singleshot Masks',
                                              'vgg11_singleshot.png'),
                                    'resnet20': (['Finetune', 'Finetune_Singleshot', 'Finetune_Mask_Mix/SynFlow',
-                                                 'SynFlow'],
+                                                 'SynFlow', 'SNIP'],
                                                 ['Finetune', 'Finetune w/ Singleshot Magnitude Pruning',
-                                                 'Finetune w/ SynFlow Mask', 'SynFlow'],
-                                                ['red', 'blue', 'black', 'green'],
-                                                ['o', 'x', 'D', '^'],
+                                                 'Finetune w/ SynFlow Mask', 'SynFlow', 'SNIP'],
+                                                ['red', 'blue', 'black', 'green', 'purple'],
+                                                ['o', 'x', 'D', '^', '+'],
                                                 'ResNet20 Accuracies w/ Different Singleshot Masks',
                                                 'resnet20_singleshot.png')}
                 }
@@ -358,7 +509,22 @@ def main(args):
         weights_per_layers(RATIOS_VGG, device, VGG_TARGET_SIZE)
     elif args.graph == 'mask_mix' or args.graph == 'singleshot_imp':
         folder_names, labels, colors, markers, title, path = metadata[args.graph][args.model_name.lower()]
-        IMP_other_accuracies(RATIOS_VGG, VGG_TARGET_SIZE, testloader, device, folder_names, labels, colors, markers,
-                             title, path, args)
+        if 'vgg' in args.model_name.lower():
+            IMP_other_accuracies(RATIOS_VGG, VGG_TARGET_SIZE, testloader, device, folder_names, labels, colors, markers,
+                                 title, path, args)
+        elif 'resnet' in args.model_name.lower() and (args.dataset.lower() == 'cifar100' or args.dataset.lower()
+                                                      == 'cifar10'):
+            IMP_other_accuracies(RATIOS_RESNET_CIFAR, RESNET_CIFAR_TARGET_SIZE, testloader, device, folder_names,
+                                 labels, colors, markers, title, path, args)
     elif args.graph == 'rewind_epochs':
-        reinit_diff_epochs(RATIOS_VGG, testloader, device, args)
+        if 'vgg' in args.model_name.lower():
+            reinit_diff_epochs(RATIOS_VGG, testloader, device, args)
+        elif 'resnet' in args.model_name.lower() and (args.dataset.lower() == 'cifar100' or args.dataset.lower()
+                                                      == 'cifar10'):
+            reinit_diff_epochs(RATIOS_RESNET_CIFAR, testloader, device, args)
+    elif args.graph == 'rewind_masks':
+        if 'vgg' in args.model_name.lower():
+            rewind_masks(RATIOS_VGG, testloader, device, args)
+        elif 'resnet' in args.model_name.lower() and (args.dataset.lower() == 'cifar100' or args.dataset.lower()
+                                                      == 'cifar10'):
+            rewind_masks(RATIOS_RESNET_CIFAR, testloader, device, args)

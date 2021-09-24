@@ -75,7 +75,7 @@ def mask_swap(model, mask_model):
 
 
 def run(args):
-    file_names = {'snip': 'SNIP', 'grasp': 'GraSP', 'synflow': 'SynFlow'}
+    file_names = {'snip': 'SNIP', 'grasp': 'GraSP', 'synflow': 'SynFlow', 'mag': 'Mag'}
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if 'vgg' in args.model_name.lower():
         cfg = config.defaultcfg_vgg[int(args.model_name.lower().replace('vgg', ''))].copy()
@@ -85,35 +85,125 @@ def run(args):
         else:
             cfg = config.defaultcfg_resnet_cifar[int(args.model_name.lower().replace('resnet', ''))].copy()
     network_utils.multiplier(cfg, args.expansion_ratio)
-
-    if 'vgg' in args.model_name.lower():
-        temp_path = config.PRIVATE_PATH + f'/Models/SavedModels/VGG/{file_names[args.pruner.lower()]}/' \
-                                          f'{args.model_name.lower()}_{args.expansion_ratio}x_' \
-                                          f'{file_names[args.pruner.lower()]}_best.pt'
-    elif 'resnet' in args.model_name.lower():
-        temp_path = config.PRIVATE_PATH + f'/Models/SavedModels/ResNet/{file_names[args.pruner.lower()]}/' \
-                                          f'{args.model_name.lower()}_{args.expansion_ratio}x_' \
-                                          f'{file_names[args.pruner.lower()]}_best.pt'
-    if os.path.exists(temp_path):
-        print(f'Old {file_names[args.pruner.lower()]} (w/ expansion ratio {args.expansion_ratio}x) found')
-        mask_model = network_utils.get_network(args.model_name.lower(), args.dataset.lower(), cfg, imp=False)
-        mask_model.load_state_dict(torch.load(temp_path))
-        mask_model.to(device)
+    if args.prune_to_epoch == 0:
+        if 'vgg' in args.model_name.lower():
+            temp_path = config.PRIVATE_PATH + f'/Models/SavedModels/VGG/{file_names[args.pruner.lower()]}/' \
+                                              f'{args.model_name.lower()}_{args.expansion_ratio}x_' \
+                                              f'{file_names[args.pruner.lower()]}_best.pt'
+        elif 'resnet' in args.model_name.lower():
+            temp_path = config.PRIVATE_PATH + f'/Models/SavedModels/ResNet/{file_names[args.pruner.lower()]}/' \
+                                              f'{args.model_name.lower()}_{args.expansion_ratio}x_' \
+                                              f'{file_names[args.pruner.lower()]}_best.pt'
+        if os.path.exists(temp_path):
+            print(f'Old {file_names[args.pruner.lower()]} (w/ expansion ratio {args.expansion_ratio}x) found')
+            mask_model = network_utils.get_network(args.model_name.lower(), args.dataset.lower(), cfg)
+            mask_model.load_state_dict(torch.load(temp_path))
+            mask_model.to(device)
+        else:
+            print(f'Old mask model with specification not found! Require to train a {file_names[args.pruner.lower()]} '
+                  f'model with expansion ratio {args.expansion_ratio}x first')
+            quit()
     else:
-        print(f'Old mask model with specification not found! Require to train a {file_names[args.pruner.lower()]} model'
-              f' with expansion ratio {args.expansion_ratio}x first')
-        quit()
+        temp_dict = {0: 'first', 5: 'fifth', 10: 'tenth'}
+        if 'vgg' in args.model_name.lower():
+            temp_path = config.PRIVATE_PATH + f'/Models/SavedModels/VGG/expansion_ratio_inference/' \
+                                              f'{args.model_name.lower()}_{args.expansion_ratio}x_for_reinit_' \
+                                              f'{temp_dict[args.prune_to_epoch]}_epoch.pt'
+        elif 'resnet' in args.model_name.lower():
+            temp_path = config.PRIVATE_PATH + f'/Models/SavedModels/ResNet/expansion_ratio_inference/' \
+                                              f'{args.model_name.lower()}_{args.expansion_ratio}x_' \
+                                              f'{temp_dict[args.prune_to_epoch]}_epoch.pt'
+        if os.path.exists(temp_path):
+            print(f'Old unpruned model (w/ expansion ratio {args.expansion_ratio}x) at epoch {args.prune_to_epoch} '
+                  f'found')
+            mask_model = network_utils.get_network(args.model_name.lower(), args.dataset.lower(), cfg)
+            mask_model.load_state_dict(torch.load(temp_path))
+            mask_model.to(device)
+            pruner = pruning_utils.pruner(args.pruner)(pruning_utils.masked_parameters(mask_model))
+            _, total_elems = pruner.stats()
+            input_shape, num_classes = network_utils.dimension(args.dataset)
+            prune_loader = network_utils.dataloader(args.dataset, args.prune_batch_size, True,
+                                                    length=args.prune_dataset_ratio * num_classes)
+            loss = nn.CrossEntropyLoss().to(device)
+            if isinstance(mask_model, Pruners_VGGModels.VGG):
+                target_sparsity = (config.VGG_TARGET_SIZE / total_elems)
+            elif isinstance(mask_model, Pruners_ResNetModels_CIFAR.ResNet):
+                target_sparsity = (config.RESNET_CIFAR_TARGET_SIZE / total_elems)
+            prune_loop(mask_model, loss, pruner, prune_loader, device, target_sparsity, args.compression_schedule,
+                       'global', args.prune_epochs)
+        else:
+            print(f'Old mask model with specification not found! Require to train a {file_names[args.pruner.lower()]} '
+                  f'model with expansion ratio {args.expansion_ratio}x with epoch {args.prune_to_epoch} first')
+            quit()
 
     model = load_network(args.model_name, args.dataset, cfg, args.expansion_ratio, args).to(device)
     loss = nn.CrossEntropyLoss().to(device)
     optimizer = LARS(model.parameters(), lr=args.lr, max_epoch=args.post_epochs)
     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.lr_drops, gamma=0.1)
 
+    if args.weight_rewind:
+        temp_dict = {0: 'first', 5: 'fifth', 10: 'tenth'}
+        parameter_dict = {}
+        batchnorm_dict = {}
+        expansion_ratio = args.expansion_ratio
+        if 'vgg' in args.model_name.lower():
+            current_cfg = config.defaultcfg_vgg[int(args.model_name.lower().replace('vgg', ''))].copy()
+        else:
+            if args.dataset.lower() == 'imagenet':
+                current_cfg = config.defaultcfg_resnet_imagenet[
+                    int(args.model_name.lower().replace('resnet', ''))].copy()
+            else:
+                current_cfg = config.defaultcfg_resnet_cifar[
+                    int(args.model_name.lower().replace('resnet', ''))].copy()
+        network_utils.multiplier(current_cfg, expansion_ratio)
+        temp_model = network_utils.get_network(args.model_name.lower(), args.dataset, current_cfg)
+        if 'vgg' in args.model_name.lower():
+            temp_model.load_state_dict(torch.load(config.PRIVATE_PATH +
+                                                  f'/Models/SavedModels/VGG/expansion_ratio_inference/'
+                                                  f'{args.model_name.lower()}_{args.expansion_ratio}x_'
+                                                  f'for_reinit_{temp_dict[args.prune_to_epoch]}_epoch.pt'))
+        elif 'resnet' in args.model_name.lower():
+            temp_model.load_state_dict(torch.load(config.PRIVATE_PATH +
+                                                  f'/Models/SavedModels/ResNet/expansion_ratio_inference/'
+                                                  f'{args.model_name.lower()}_{args.expansion_ratio}x_'
+                                                  f'{temp_dict[args.prune_to_epoch]}_epoch.pt'))
+        temp_model.to(device)
+        for name, param in temp_model.named_parameters():
+            parameter_dict[name] = param
+        for name, param in model.named_parameters():
+            param.data = parameter_dict[name]
+        if 'resnet' in args.model_name.lower() or 'vgg' in args.model_name.lower():
+            for buffer_name, buffer in temp_model.named_buffers():
+                if ('bn' in buffer_name and 'resnet' in args.model_name.lower()) or \
+                        ('vgg' in args.model_name.lower() and ('running_mean' in buffer_name or
+                                                               'running_var' in buffer_name or
+                                                               'num_batches_tracked' in buffer_name)):
+                    period_positions = [pos for pos, char in enumerate(buffer_name) if char == '.']
+                    module_name = buffer_name[:period_positions[-1]]
+                    if module_name not in batchnorm_dict:
+                        batchnorm_dict[module_name] = {}
+                    if 'running_mean' in buffer_name:
+                        batchnorm_dict[module_name]['running_mean'] = buffer
+                    elif 'running_var' in buffer_name:
+                        batchnorm_dict[module_name]['running_var'] = buffer
+                    elif 'num_batches_tracked' in buffer_name:
+                        batchnorm_dict[module_name]['num_batches_tracked'] = buffer
+            for module_name, module in model.named_modules():
+                if module_name in batchnorm_dict:
+                    module.running_mean.data = batchnorm_dict[module_name]['running_mean']
+                    module.running_var.data = batchnorm_dict[module_name]['running_var']
+                    module.num_batches_tracked.data = batchnorm_dict[module_name]['num_batches_tracked']
+        print('Weights rewinded')
+
     print(f'Loading {args.dataset} dataset')
     train_loader = network_utils.dataloader(args.dataset, args.train_batch_size, True)
     test_loader = network_utils.dataloader(args.dataset, args.test_batch_size, False)
 
-    saved_file_name = f'{args.model_name.lower()}_{args.expansion_ratio}x_{file_names[args.pruner.lower()]}_MaskMix'
+    if args.prune_to_epoch == 0:
+        saved_file_name = f'{args.model_name.lower()}_{args.expansion_ratio}x_{file_names[args.pruner.lower()]}_MaskMix'
+    else:
+        saved_file_name = f'{args.model_name.lower()}_{args.expansion_ratio}x_{file_names[args.pruner.lower()]}_' \
+                          f'MaskMix_masks_rewind_epoch_{args.prune_to_epoch}'
     if 'vgg' in args.model_name.lower():
         path_to_best_model = config.PRIVATE_PATH + f'/Models/SavedModels/VGG/Finetune_Mask_Mix/' \
                                                    f'{saved_file_name}_best.pt'
@@ -134,6 +224,7 @@ def run(args):
             os.mkdir(config.PRIVATE_PATH + f'/Models/SavedModels/ResNet/Finetune_Mask_Mix/')
 
     mask_swap(model, mask_model)
+    print('Masks swapped')
     model.to(device)
     # writer = SummaryWriter(f'runs/CIFAR100/VGG/Finetune_Mask_Mix/{saved_file_name}')
     configuration = dict(learning_rate=args.lr,
