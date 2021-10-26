@@ -8,8 +8,9 @@ from torch.nn.modules.utils import _pair
 
 
 class Linear(nn.Linear):
-    def __init__(self, in_features, out_features, bias=True):
+    def __init__(self, in_features, out_features, bias=True, layer_id=0):
         super(Linear, self).__init__(in_features, out_features, bias)
+        self.layer_id = layer_id
         self.register_buffer('weight_mask', torch.ones(self.weight.shape))
         if self.bias is not None:
             self.register_buffer('bias_mask', torch.ones(self.bias.shape))

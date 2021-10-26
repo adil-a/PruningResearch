@@ -341,6 +341,7 @@ def reinit_diff_epochs(ratios, test_loader, device, args):
 
 
 def rewind_masks(ratios, test_loader, device, args):
+    plt.figure(figsize=(7, 7))
     epoch_data = {0: (5, {"SynFlow": [], "SNIP": []}), 1: (10, {"SynFlow": [], "SNIP": []})}
     if 'vgg' in args.model_name.lower():
         path = PRIVATE_PATH + f'/Models/SavedModels/VGG/Finetune_Mask_Mix'
@@ -357,12 +358,15 @@ def rewind_masks(ratios, test_loader, device, args):
     for ratio in ratios:
         for i in range(2):
             for pruning_type in pruning_types:
-                if 'vgg' in args.model_name.lower() and ratio == 4.0 and i == 1:
+                if ('vgg' in args.model_name.lower() and ratio == 4.0 and i == 1) or ('vgg' in args.model_name.lower()
+                                                                                      and ratio == 4.0 and i == 0 and
+                                                                                      pruning_type == 'SNIP'):
                     epoch_data[i][1][pruning_type].append(None)
                     continue
                 if 'resnet' in args.model_name.lower() and (ratio == 3.0 or ratio == 20.0):
                     epoch_data[i][1][pruning_type].append(None)
                     continue
+                print(f'{ratio}x, {pruning_type}, epoch: {epoch_data[i][0]}')
                 if 'vgg' in args.model_name.lower():
                     curr_cfg = defaultcfg_vgg[int(args.model_name.lower().replace('vgg', ''))].copy()
                 else:
@@ -378,6 +382,7 @@ def rewind_masks(ratios, test_loader, device, args):
                 net.eval()
                 epoch_data[i][1][pruning_type].append(round(network_utils.eval(net, test_loader,
                                                                                device, None)[0].item() * 100, 2))
+    print(epoch_data)
     temp_counter = 0
     for i in range(2):
         for pruning_type in pruning_types:
@@ -528,3 +533,9 @@ def main(args):
         elif 'resnet' in args.model_name.lower() and (args.dataset.lower() == 'cifar100' or args.dataset.lower()
                                                       == 'cifar10'):
             rewind_masks(RATIOS_RESNET_CIFAR, testloader, device, args)
+    elif args.graph == 'rewind_masks_weights':
+        if 'vgg' in args.model_name.lower():
+            rewind_masks_weights(RATIOS_VGG, testloader, device, args)
+        elif 'resnet' in args.model_name.lower() and (args.dataset.lower() == 'cifar100' or args.dataset.lower()
+                                                      == 'cifar10'):
+            rewind_masks_weights(RATIOS_RESNET_CIFAR, testloader, device, args)
