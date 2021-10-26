@@ -9,10 +9,11 @@ from Utils.config import setup_seed
 import os
 import wandb
 
-STUDENT_TRAINING_EPOCHS = 150
+STUDENT_TRAINING_EPOCHS = 100
 TEACHER_TRAINING_EPOCHS = 60
 LR = 0.01
 PRUNING_RATIO = 0.2
+FINAL_SPARSITY = 0.1
 
 
 class GaussDataset(Dataset):
@@ -130,7 +131,7 @@ def train(network, training_epochs, lr, trainLoader, testLoader, device, pruning
         network.train()
         if i >= training_epochs and (i - training_epochs) % pruning_epochs == 0 and \
                 curr_pruning_iter <= pruning_iters:
-            sparsity = PRUNING_RATIO ** (curr_pruning_iter / pruning_iters)
+            sparsity = FINAL_SPARSITY ** (curr_pruning_iter / pruning_iters)
             curr_pruning_iter += 1
             pruner.score(network, None, None, device)
             pruner.mask(sparsity, 'global', True)
@@ -240,7 +241,8 @@ if __name__ == '__main__':
     # train(StudentModel, STUDENT_TRAINING_EPOCHS, 0.01, student_train_loader, student_test_loader, device)
     # torch.save(StudentModel.state_dict(), os.getcwd() + '/Models/SavedModels/StudentNetwork.pt')
     # StudentModel.load_state_dict(torch.load(os.getcwd() + '/Models/SavedModels/StudentNetwork.pt'))
-
+    StudentModel.to(device)
+    TeacherModel.to(device)
     pruner = pruning_utils.pruner('Mag')(pruning_utils.masked_parameters(StudentModel))
     pruning_iterations = pruning_utils.get_finetune_iterations(100, 1000, PRUNING_RATIO)
     train(StudentModel, STUDENT_TRAINING_EPOCHS, 0.01, student_train_loader, student_test_loader, device,

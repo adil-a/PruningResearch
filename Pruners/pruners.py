@@ -23,6 +23,7 @@ class Pruner:
         #     score[mask == 0.0] = -np.inf
 
         # Threshold scores
+        print(self.scores[1][0].device)
         if ts:
             global_scores = torch.flatten(self.scores[0])
         else:
@@ -122,8 +123,8 @@ class Mag(Pruner):
         if isinstance(model, MLPStudent):
             first_layer_weights_and_masks = self.masked_parameters[0]
             second_layer_weights_and_masks = self.masked_parameters[2]
-            first_layer_abs_weights = torch.clone(first_layer_weights_and_masks[1].data).detach().abs_()
-            second_layer_abs_weights = torch.clone(second_layer_weights_and_masks[1].T.data).detach().abs_()
+            first_layer_abs_weights = torch.clone(first_layer_weights_and_masks[1]).detach().abs_()
+            second_layer_abs_weights = torch.clone(second_layer_weights_and_masks[1].T).detach().abs_()
             first_layer_column_vec = torch.sum(first_layer_abs_weights, dim=1, keepdim=True)
             second_layer_column_vec = torch.sum(second_layer_abs_weights, dim=1, keepdim=True)
             # actual scores
