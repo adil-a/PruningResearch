@@ -14,25 +14,27 @@ class Pruner:
     def score(self, model, loss, dataloader, device):
         raise NotImplementedError
 
-    def _global_mask(self, sparsity, ts):
+    def _global_mask(self, sparsity, mag_ts, specialized_ts):
         r"""Updates masks of model with scores by sparsity level globally.
         """
-        # # Set score for masked parameters to -inf
-        # for mask, param in self.masked_parameters:
-        #     score = self.scores[id(param)]
-        #     score[mask == 0.0] = -np.inf
-
+        if specialized_ts:
+            for i in range(len(self.scores)):
+                weight_mask, bias_mask = self.scores[i]
+                if i == 0:
+                    weight_mask.mul_(self.intermediate_masks)
+                    bias_mask.mul_(torch.flatten(self.intermediate_masks))
+                else:
+                    weight_mask.mul_(self.intermediate_masks.T)
+            return
         # Threshold scores
-        print(self.scores[1][0].device)
-        if ts:
+        if mag_ts:
             global_scores = torch.flatten(self.scores[0])
         else:
             global_scores = torch.cat([torch.flatten(v) for v in self.scores.values()])
-        # print(global_scores)
         k = int((1.0 - sparsity) * global_scores.numel())
         if not k < 1:
             threshold, _ = torch.kthvalue(global_scores, k)
-            if ts:
+            if mag_ts:
                 score = self.scores[0].to(self.intermediate_masks.device)
                 zero = torch.tensor([0.]).to(self.intermediate_masks.device)
                 one = torch.tensor([1.]).to(self.intermediate_masks.device)
@@ -52,7 +54,7 @@ class Pruner:
                     one = torch.tensor([1.]).to(mask.device)
                     mask.copy_(torch.where(score <= threshold, zero, one))
 
-    def _local_mask(self, sparsity, ts):
+    def _local_mask(self, sparsity, mag_ts, specialized_ts):
         r"""Updates masks of model with scores by sparsity level parameter-wise.
         """
         for mask, param in self.masked_parameters:
@@ -64,13 +66,13 @@ class Pruner:
                 one = torch.tensor([1.]).to(mask.device)
                 mask.copy_(torch.where(score <= threshold, zero, one))
 
-    def mask(self, sparsity, scope, ts=False):
+    def mask(self, sparsity, scope, mag_ts=False, specialized_ts=False):
         r"""Updates masks of model with scores by sparsity according to scope.
         """
         if scope == 'global':
-            self._global_mask(sparsity, ts)
+            self._global_mask(sparsity, mag_ts, specialized_ts)
         if scope == 'local':
-            self._local_mask(sparsity, ts)
+            self._local_mask(sparsity, mag_ts, specialized_ts)
 
     @torch.no_grad()
     def apply_mask(self):
@@ -105,6 +107,14 @@ class Pruner:
             total_params += mask.numel()
         return remaining_params, total_params
 
+class SpecializedTS(Pruner):
+    def __init__(self, masked_parameters):
+        super(SpecializedTS, self).__init__(masked_parameters)
+
+    def score(self, model, loss, dataloader, device):
+        self.scores[0] = (self.masked_parameters[0][0], self.masked_parameters[1][0])
+        self.scores[1] = (self.masked_parameters[2][0], self.masked_parameters[3][0])
+
 
 class Rand(Pruner):
     def __init__(self, masked_parameters):
@@ -120,23 +130,23 @@ class Mag(Pruner):
         super(Mag, self).__init__(masked_parameters)
 
     def score(self, model, loss, dataloader, device):
-        if isinstance(model, MLPStudent):
-            first_layer_weights_and_masks = self.masked_parameters[0]
-            second_layer_weights_and_masks = self.masked_parameters[2]
-            first_layer_abs_weights = torch.clone(first_layer_weights_and_masks[1]).detach().abs_()
-            second_layer_abs_weights = torch.clone(second_layer_weights_and_masks[1].T).detach().abs_()
-            first_layer_column_vec = torch.sum(first_layer_abs_weights, dim=1, keepdim=True)
-            second_layer_column_vec = torch.sum(second_layer_abs_weights, dim=1, keepdim=True)
-            # actual scores
-            self.scores[0] = first_layer_column_vec + second_layer_column_vec
-            # first layer masks
-            self.scores[1] = (self.masked_parameters[0][0], self.masked_parameters[1][0])
-            # second layer masks
-            self.scores[2] = (self.masked_parameters[2][0], self.masked_parameters[3][0])
-            self.intermediate_masks = torch.ones(first_layer_column_vec.shape).to(device)
-        else:
-            for _, p in self.masked_parameters:
-                self.scores[id(p)] = torch.clone(p.data).detach().abs_()
+        # if isinstance(model, MLPStudent):
+        #     first_layer_weights_and_masks = self.masked_parameters[0]
+        #     second_layer_weights_and_masks = self.masked_parameters[2]
+        #     first_layer_abs_weights = torch.clone(first_layer_weights_and_masks[1]).detach().abs_()
+        #     second_layer_abs_weights = torch.clone(second_layer_weights_and_masks[1].T).detach().abs_()
+        #     first_layer_column_vec = torch.sum(first_layer_abs_weights, dim=1, keepdim=True)
+        #     second_layer_column_vec = torch.sum(second_layer_abs_weights, dim=1, keepdim=True)
+        #     # actual scores
+        #     self.scores[0] = first_layer_column_vec + second_layer_column_vec
+        #     # first layer masks
+        #     self.scores[1] = (self.masked_parameters[0][0], self.masked_parameters[1][0])
+        #     # second layer masks
+        #     self.scores[2] = (self.masked_parameters[2][0], self.masked_parameters[3][0])
+        #     self.intermediate_masks = torch.ones(first_layer_column_vec.shape).to(device)
+        # else:
+        for _, p in self.masked_parameters:
+            self.scores[id(p)] = torch.clone(p.data).detach().abs_()
 
 
 # Based on https://github.com/mi-lad/snip/blob/master/snip.py#L18

@@ -139,6 +139,7 @@ def pruner(method):
         'snip': pruners.SNIP,
         'grasp': pruners.GraSP,
         'synflow': pruners.SynFlow,
+        'specialized': pruners.SpecializedTS
     }
     return prune_methods[method]
 

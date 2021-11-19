@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
-from Models import Pruners_VGGModels, Pruners_ResNetModels_CIFAR
+from Models import Pruners_VGGModels, Pruners_ResNetModels_CIFAR, TeacherStudentModels
 from Layers import layers
 import wandb
 
@@ -72,6 +72,29 @@ def mask_swap(model, mask_model):
                     weight_name, weight_buffer = dictionary[module_name][0]
                     del module._buffers['weight_mask']
                     module.register_buffer('weight_mask', weight_buffer)
+    elif isinstance(model, TeacherStudentModels.Model):
+        for buffer_name, buffer in mask_model.named_buffers():
+            if 'bn' not in buffer_name:
+                period_positions = [pos for pos, char in enumerate(buffer_name) if char == '.']
+                module_name = buffer_name[:period_positions[-1]]
+                if module_name in dictionary:
+                    dictionary[module_name].append((buffer_name, buffer))
+                else:
+                    dictionary[module_name] = [(buffer_name, buffer)]
+
+        for module_name, module in model.named_modules():
+            if module_name in dictionary:
+                weight_name, weight_buffer, bias_name, bias_buffer = [None] * 4
+                for item in dictionary[module_name]:
+                    if 'weight' in item[0]:
+                        weight_name, weight_buffer = item
+                    else:
+                        bias_name, bias_buffer = item
+                del module._buffers['weight_mask']
+                del module._buffers['bias_mask']
+                module.register_buffer('weight_mask', weight_buffer)
+                module.register_buffer('bias_mask', bias_buffer)
+
 
 
 def run(args):
