@@ -1,4 +1,4 @@
-#Project description
+# Project description
 This work was done under Professor Roger Grosse, Guodong Zhang, and Chaoqi Wang during the year 2021. We set out to 
 explore how overparameterization of CNNs interacts with pruning. The way we overparameterize our networks whilst keeping 
 the architecture the same is by changing the number of channels between convolutional layers (i.e. increasing the number 
